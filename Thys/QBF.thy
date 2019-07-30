@@ -89,10 +89,10 @@ section \<open>CNF/DNF Matrix\<close>
     by (auto simp: sem_clause_dnf_def)
     
   lemma sem_cnf_simps:
-    "sem_cnf {} \<sigma>"
-    "sem_cnf (insert C F) \<sigma> \<longleftrightarrow> sem_clause_cnf C \<sigma> \<and> sem_cnf F \<sigma>"  
-    "sem_cnf (F\<^sub>1 \<union> F\<^sub>2) \<sigma> \<longleftrightarrow> sem_cnf F\<^sub>1 \<sigma> \<and> sem_cnf F\<^sub>2 \<sigma>"  
-    by (auto simp: sem_cnf_def)
+    "sem_cnf {} = (\<lambda>_. True)"
+    "sem_cnf (insert C F) = (\<lambda>\<sigma>. sem_clause_cnf C \<sigma> \<and> sem_cnf F \<sigma>)"  
+    "sem_cnf (F\<^sub>1 \<union> F\<^sub>2) = (\<lambda>\<sigma>. sem_cnf F\<^sub>1 \<sigma> \<and> sem_cnf F\<^sub>2 \<sigma>)"
+    by (auto simp: sem_cnf_def fun_eq_iff)
     
   lemma sem_dnf_simps:
     "\<not>sem_dnf {} \<sigma>"
@@ -160,7 +160,12 @@ section \<open>CNF/DNF Matrix\<close>
   lemma cnf_resolution: "sem_cnf ({ {Pos x} \<union> C\<^sub>1, {Neg x} \<union> C\<^sub>2 } \<union> R) 
     = sem_cnf ({ {Pos x} \<union> C\<^sub>1, {Neg x} \<union> C\<^sub>2, C\<^sub>1 \<union> C\<^sub>2 } \<union> R)"
     by (auto simp: sem_cnf_simps fun_eq_iff sem_clause_cnf_simps)
+
+  lemma dnf_resolution: "sem_dnf ({ {Pos x} \<union> C\<^sub>1, {Neg x} \<union> C\<^sub>2 } \<union> R) 
+    = sem_dnf ({ {Pos x} \<union> C\<^sub>1, {Neg x} \<union> C\<^sub>2, C\<^sub>1 \<union> C\<^sub>2 } \<union> R)"
+    by (auto simp: sem_dnf_simps fun_eq_iff sem_clause_dnf_simps)
     
+        
   fun lit_of where "lit_of x True = Pos x" | "lit_of x False = Neg x" 
     
   definition "subst F x v \<equiv> { C - {lit_of x (\<not>v)} | C. C\<in>F \<and> lit_of x v \<notin> C }"  
@@ -208,11 +213,16 @@ section \<open>CNF/DNF Matrix\<close>
   qed
   
     
-  lemma subst_simps: "NO_MATCH {} R \<Longrightarrow> subst (insert C R) x v = subst {C} x v \<union> subst R x v"
+  lemma subst_simps: 
+    "NO_MATCH {} R \<Longrightarrow> subst (insert C R) x v = subst {C} x v \<union> subst R x v"
+    "subst {C} x v = (if lit_of x v \<in> C then {} else {C - {lit_of x (\<not>v)}})"
     by (auto simp: subst_def)
   
-  lemma "sem_qbf_aux qs (\<lambda>_. False) \<sigma> = False"  
-    apply (induction qs arbitrary: \<sigma>)
+  lemma sem_qbf_aux_const: "sem_qbf_aux qs (\<lambda>_. c) \<sigma> = c"  
+    apply (induction qs "(\<lambda>_::'a valuation. c)" \<sigma> rule: sem_qbf_aux.induct)
+    by auto
+        
+  lemma lvar_lit_of[simp]: "lvar (lit_of x v) = x" by (cases v) auto
     
   lemma cnf_univ_reduction:  
     assumes DIST: "distinct (map qvar qs)"
@@ -225,10 +235,12 @@ section \<open>CNF/DNF Matrix\<close>
       by (cases l) (simp_all add: subst_def)
       
     have 2: "\<exists>v. sem_cnf (subst (insert {l} R) (lvar l) v) = (\<lambda>_. False)" for R
-      apply (simp add: subst_simps 1)
+      apply (simp add: 1 subst_simps(1))
       by (meson sem_clause_cnf_simps(1) sem_cnf_simps(2))
   
-  
+    have 3: "\<exists>v. \<not>sem_qbf_aux qs\<^sub>2 (sem_cnf (subst (insert {l} R) (lvar l) v)) \<sigma>" for R \<sigma>  
+      by (smt "2" sem_qbf_aux_const[where c=False])
+      
     have "sem_qbf_aux qs (sem_cnf (insert (insert l C) R)) \<sigma> =
       sem_qbf_aux qs (sem_cnf (insert C R)) \<sigma>" for \<sigma>
       using DIST SS
@@ -237,26 +249,101 @@ section \<open>CNF/DNF Matrix\<close>
       case Nil
       then show ?case 
         apply (safe;clarsimp simp: sem_qbf_aux_subst)
-        sledgehammer
-        subgoal for v
-          apply (drule spec[where x=v])
-          apply (simp add: sem_qbf_aux_subst)
-        
+        subgoal using 3 by blast
+        subgoal by (simp add: subst_simps sem_cnf_simps sem_clause_cnf_simps sem_qbf_aux_const)
+        done
       
     next
       case (Cons a qs\<^sub>1)
-      then show ?case sorry
+      
+      show ?case 
+        (* TODO: CLEAN UP THIS MESS! *)
+        using Cons.prems
+        apply (cases a; simp)
+        subgoal for x
+          apply (auto)
+          subgoal for v
+            apply (subst sem_qbf_aux_subst)
+            apply auto []
+            apply (subst (asm) sem_qbf_aux_subst)
+            apply auto []
+            apply (drule spec[of _ v])
+            apply (cases "lit_of x v \<in> C")
+            subgoal by (simp add: subst_simps)
+            subgoal
+              apply (auto simp add: subst_simps split: if_splits) []
+              apply (smt Cons.IH Diff_insert0 Diff_insert_absorb UnCI insert_Diff insert_Diff1 insert_Diff_if insert_absorb insert_subset subset_insert_iff subst_removes_var subst_simps(2) vars_of_clause_simps(2) vars_of_matrix_simps(2))
+              done
+            done  
+          subgoal for v
+            apply (subst sem_qbf_aux_subst)
+            apply auto []
+            apply (subst (asm) sem_qbf_aux_subst)
+            apply auto []
+            apply (drule spec[of _ v])
+            apply (cases "lit_of x v \<in> C")
+            subgoal by (simp add: subst_simps)
+            subgoal
+              apply (auto simp add: subst_simps split: if_splits) []
+              apply (smt Cons.IH Diff_insert0 Diff_insert_absorb UnCI insert_Diff insert_Diff1 insert_Diff_if insert_absorb insert_subset subset_insert_iff subst_removes_var subst_simps(2) vars_of_clause_simps(2) vars_of_matrix_simps(2))
+              done
+            done  
+          done
+          
+        subgoal for x
+          apply (auto)
+          subgoal for v
+            apply (subst sem_qbf_aux_subst)
+            apply auto []
+            apply (subst (asm) sem_qbf_aux_subst)
+            apply auto []
+            apply (rule exI[of _ v])
+            apply (cases "lit_of x v \<in> C")
+            subgoal by (simp add: subst_simps)
+            subgoal
+              apply (auto simp add: subst_simps split: if_splits) []
+              apply (smt Cons.IH Diff_insert0 Diff_insert_absorb UnCI insert_Diff insert_Diff1 insert_Diff_if insert_absorb insert_subset subset_insert_iff subst_removes_var subst_simps(2) vars_of_clause_simps(2) vars_of_matrix_simps(2))
+              done
+            done  
+          subgoal for v
+            apply (subst sem_qbf_aux_subst)
+            apply auto []
+            apply (subst (asm) sem_qbf_aux_subst)
+            apply auto []
+            apply (rule exI[of _ v])
+            apply (cases "lit_of x v \<in> C")
+            subgoal by (simp add: subst_simps)
+            subgoal
+              apply (auto simp add: subst_simps split: if_splits) []
+              apply (smt Cons.IH Diff_insert0 Diff_insert_absorb UnCI insert_Diff insert_Diff1 insert_Diff_if insert_absorb insert_subset subset_insert_iff subst_removes_var subst_simps(2) vars_of_clause_simps(2) vars_of_matrix_simps(2))
+              done
+            done  
+          done
+        done
     qed
       
+    then show ?thesis
+      by (simp add: sem_qbf_def)
+  qed
        
+
+  xxx, ctd here: towards abstract proof checker
+  
+  map: ids \<rightharpoonup> clauses
+  
+  map = empty
+  
+  foreach (STEP id C antecedents) \<in> butlast cert
+    @invariant: range map \<union> orig_clauses  equisat  orig_clauses
+    check step
+    map = map(id\<mapsto>C)
+  
+  check last step of cert
+    assert that C={}  
+    
   
   
-    unfolding sem_qbf_def
-    apply simp
-    
-    
-    
-    
+      
     
 oops    
   xxx, 
