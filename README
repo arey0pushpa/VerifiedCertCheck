@@ -5,3 +5,48 @@
   This version is an experimental version of Verified-QBFcert, a framework for extraction and validation 
   of certificates for Quantified Boolean Formulas (QBF).
 
+
+-------------------------------------------------------------------------------
+ Installation:
+-------------------------------------------------------------------------------
+
+QBFCERT:
+  
+  Go to Tools/qbfcert/lingeling/
+
+  $ cd $ROOTDIR/Tools/qbfcert/lingeling/
+ 
+  To build everything issue
+
+  ./configure.sh && make
+
+
+-------------------------------------------------------------------------------
+ Usage:
+-------------------------------------------------------------------------------
+
+
+QBFCERT:
+  
+  Go to Tools/qbfcert
+
+  $ cd $ROOTDIR/Tools/qbfcert
+
+  QBFcert expects an input QBF in QDIMACS format as mandatory argument.
+  It further requires write permissions to some tmp directory for temporary 
+  storage of intermediate files ('./tmp' by default). Note that these files
+  may be in the size of several GB and are thus not kept permanently. In case
+  you want to explicitely keep them, use option --keep resp. --Keep.
+
+
+  Invocation:
+
+    Usage: ./qbfcert.sh [<OPTIONS>] <FORMULA>
+
+
+  Example: 
+      $ ./qbfcert.sh examples/adder-2-sat.qdimacs
+      $ *** qbfcert: using tmp directory:
+      $ *** qbfcert:   /path/to/qbfcert/tmp
+      $ *** qbfcert:
+      $ *** qbfcert: VALID
