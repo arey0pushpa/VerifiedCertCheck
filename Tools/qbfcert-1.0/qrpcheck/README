@@ -1,0 +1,153 @@
+===============================================================================
+ QRPcheck
+===============================================================================
+
+  This is version 1.0.3 of QRPcheck [0], a proof checker for Q-resolution 
+  proofs in QRP format (see [1] for more details on the format). 
+  
+  QRPcheck is free software released under the GPLv3. You should have received 
+  a copy of the GNU General Public License along with QRPcheck (see file 
+  COPYING). If not, see [2].
+
+
+-------------------------------------------------------------------------------
+ General:
+-------------------------------------------------------------------------------
+
+  QRPcheck is a tool for extracting and checking clause (cube) resolution 
+  proofs of unsatisfiability (satisfiability) in binary or ascii QRP format. 
+  Further, given a proof of satisfiability, QRPcheck supports optional 
+  checking of the validity of the set of input cubes given.
+
+
+-------------------------------------------------------------------------------
+ Changelog:
+-------------------------------------------------------------------------------
+
+  Since version 1.0.2:
+    + Fixed: incorrect tautology detection (in antecedent) and duplicate 
+      literal handling for a special corner case.
+    + Minor verbose msg fixes.
+  Since version 1.0.1:
+    + Minor option parser fix.
+  Since version 1.0:
+    + Fixed a parser bug which propagated to the checker. Thanks to Mikoláš 
+      Janota.
+    + Fixed unsound behaviour when checking non-covering initial cubes 
+      in case of non-forall-reduced input clauses in input formula. Thanks to
+      Florian Lonsing and Mikoláš Janota.
+    + Fixed a bug when adding literals to PicoSAT (checking of non-covering 
+      initial cubes). Note that this bug was first introduced in version 1.0.
+      (The previous binary-only version used for the experimental evaluation
+      in [6] was not affected.)
+
+-------------------------------------------------------------------------------
+ Installation:
+-------------------------------------------------------------------------------
+
+  Note: QRPcheck needs PicoSAT for initial cube checking. You can find the
+        latest sources here: [3]
+
+  By default, the makefile contained in the QRPcheck sources expects PicoSAT
+  to be found at $QRPcheckROOTDIR/libs/picosat. Do not forget to update this
+  path if PicoSAT is located elsewhere.
+
+  Then, first compile PicoSAT, then QRPcheck, and you're set. Note that by
+  default, QRPcheck is not compiled with debug information (see makefile for
+  more details).
+
+  Here's a brief *nix-ish HOWTO build QRPcheck with version 936 of PicoSAT:
+  
+  $ cd $QRPcheckROOTDIR
+  $ mkdir libs
+  $ wget -c http://fmv.jku.at/picosat/picosat-936.tar.gz
+  $ tar xvf picosat-936.tar.gz
+  $ mv picosat-936 picosat
+  $ cd libs/picosat
+  $ ./configure
+  $ make          # make PicoSAT
+  $ cd ../../     # change back to $QRPcheckROOTDIR
+  $ make          # make QRPcheck with default options
+
+
+  In case you do not want to use PicoSAT (WARNING: this disables initial 
+  cube checking!), QRPcheck provides respective make options (see makefile 
+  for more details). 
+
+-------------------------------------------------------------------------------
+ Usage:
+-------------------------------------------------------------------------------
+
+  QRPcheck expects a trace resp. proof in QRP format as mandatory argument.
+  In case that initial cube checking is enabled, it further requires the 
+  input formula in QDIMACS format as input.
+
+  Invocation:
+
+    qrpcheck [<OPTIONS>] <FILE>
+
+      File:
+        a QBF resolution proof or trace in ascii or binary QRP format
+
+      Options:
+        -h, --help      print this message and exit
+        --version       print version
+        -v              increase verbosity incrementally
+        -p [<format>]   print core proof
+                          format: qrp (default)
+                                  bqrp
+        -P [<format>]   print core proof without checking
+                          format: qrp (default)
+                                  bqrp
+        -f <file>       check against original formula (if sat)
+        -s              print statistics
+
+
+-------------------------------------------------------------------------------
+ Information:
+-------------------------------------------------------------------------------
+
+  A more detailed description of QRPcheck can be found in my master's thesis 
+  at [4]. Note that unlike in [4], the current version of QRPcheck supports 
+  both ascii and binary QRP format as presented in [2].
+
+  QRPcheck is part of a framework for extracting and validating certificates
+  for Quantified Boolean Formulas (QBF). For more information on the framework,
+  see [5] and our tool paper at SAT'12 [6]:
+
+  @inproceedings{DBLP:conf/sat/NiemetzPLSB12,
+    author    = {Aina Niemetz and
+                 Mathias Preiner and
+                 Florian Lonsing and
+                 Martina Seidl and
+                 Armin Biere},
+    title     = {Resolution-Based Certificate Extraction for QBF - (Tool
+                 Presentation)},
+    booktitle = {SAT},
+    year      = {2012},
+    pages     = {430-435},
+    ee        = {http://dx.doi.org/10.1007/978-3-642-31612-8_33},
+    crossref  = {DBLP:conf/sat/2012},
+    bibsource = {DBLP, http://dblp.uni-trier.de}
+  }
+
+
+-------------------------------------------------------------------------------
+ Contact:
+-------------------------------------------------------------------------------
+
+  For comments, questions and bug reports, please contact Aina Niemetz [7].
+
+
+-------------------------------------------------------------------------------
+ References:
+-------------------------------------------------------------------------------
+
+  [0] http://www.fmv.jku.at/qrpcheck
+  [1] http://www.fmv.jku.at/qbfcert/qrp.format
+  [2] http://www.gnu.org/licenses/
+  [3] http://www.fmv.jku.at/picosat
+  [4] http://www.fmv.jku.at/niemetz/papers/niemetz-master_thesis-2012.pdf
+  [5] http://www.fmv.jku.at/qbfcert
+  [6] http://www.fmv.jku.at/papers/NiemetzPreinerLonsingSeidlBiere-SAT12.pdf
+  [7] http://www.fmv.jku.at/niemetz
