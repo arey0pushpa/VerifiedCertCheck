@@ -6,28 +6,278 @@ begin
   
   type_synonym 'a valuation = "'a \<Rightarrow> bool"
   type_synonym 'a afml = "'a valuation \<Rightarrow> bool"
-  
-  definition "is_deps F X \<equiv> \<forall>\<sigma> \<sigma>'. (\<forall>x\<in>X. \<sigma> x = \<sigma>' x) \<longrightarrow> F \<sigma> = F \<sigma>'"
-  
-  lemma is_deps_mono: "is_deps F X \<Longrightarrow> X\<subseteq>X' \<Longrightarrow> is_deps F X'"
-    by (auto simp: is_deps_def)
-  
-  
-  datatype 'a quant = Forall (qvar: 'a) | Exists (qvar: 'a)
-  datatype 'a qbf = QBF (quants: "'a quant list") (matrix: "'a afml")
 
-  fun sem_qbf_aux :: "'a quant list \<Rightarrow> 'a afml \<Rightarrow> 'a valuation \<Rightarrow> bool" where  
-    "sem_qbf_aux [] m \<sigma> \<longleftrightarrow> m \<sigma>"
-  | "sem_qbf_aux (Forall x # qs) m \<sigma> \<longleftrightarrow> (\<forall>v. sem_qbf_aux qs m (\<sigma>(x:=v)))"  
-  | "sem_qbf_aux (Exists x # qs) m \<sigma> \<longleftrightarrow> (\<exists>v. sem_qbf_aux qs m (\<sigma>(x:=v)))"  
+  definition sForall ("\<^bold>\<forall>_. _" 80) where "\<^bold>\<forall>x. \<phi> \<equiv> \<lambda>\<sigma>. \<forall>v. \<phi> (\<sigma>(x:=v))"
+  definition sExists ("\<^bold>\<exists>_. _" 80) where "\<^bold>\<exists>x. \<phi> \<equiv> \<lambda>\<sigma>. \<exists>v. \<phi> (\<sigma>(x:=v))"
+  definition sAnd (infixr "\<^bold>\<and>" 95) where "\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2 \<equiv> \<lambda>\<sigma>. \<phi>\<^sub>1 \<sigma> \<and> \<phi>\<^sub>2 \<sigma>"
+  definition sOr (infixr "\<^bold>\<or>" 90) where "\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2 \<equiv> \<lambda>\<sigma>. \<phi>\<^sub>1 \<sigma> \<or> \<phi>\<^sub>2 \<sigma>"
+  definition sNot ("\<^bold>\<not>_" [100] 100) where "sNot \<phi>\<^sub>1 \<equiv> \<lambda>\<sigma>. \<not> \<phi>\<^sub>1 \<sigma>"
+  
+  definition "Pos x \<equiv> \<lambda>\<sigma>::_ \<Rightarrow> bool. \<sigma> x"
+  abbreviation "Neg x \<equiv> \<^bold>\<not>Pos x"
+  
+  
+  lemma not_not[simp]:
+    "\<^bold>\<not>\<^bold>\<not>\<phi> = \<phi>" 
+    by (auto simp: sNot_def)
+  
+  lemma push_not_qs: 
+    "\<^bold>\<not>(\<^bold>\<forall>x. \<phi>) = \<^bold>\<exists>x. \<^bold>\<not>\<phi>"
+    "\<^bold>\<not>(\<^bold>\<exists>x. \<phi>) = \<^bold>\<forall>x. \<^bold>\<not>\<phi>"
+    unfolding sNot_def sForall_def sExists_def by auto
+  
+  lemma push_not_cd:   
+    "\<^bold>\<not>(\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = \<^bold>\<not>\<phi>\<^sub>1 \<^bold>\<or> \<^bold>\<not>\<phi>\<^sub>2"
+    unfolding sNot_def sAnd_def sOr_def by auto
 
-  definition "sem_qbf F \<equiv> sem_qbf_aux (quants F) (matrix F) (\<lambda>_. False)"
+  lemmas to_nnf = push_not_qs push_not_cd
+  lemmas to_nnf' = not_not push_not_qs push_not_cd
+
+  lemma or_assoc[simp]: "(a \<^bold>\<or> b) \<^bold>\<or> c = a \<^bold>\<or> b \<^bold>\<or> c"
+    by (auto simp: sAnd_def sOr_def)
+
+  lemma and_assoc[simp]: "(a \<^bold>\<and> b) \<^bold>\<and> c = a \<^bold>\<and> b \<^bold>\<and> c"
+    by (auto simp: sAnd_def sOr_def)
     
-  definition "bound_vars F \<equiv> qvar`set (quants F)"
-  definition "closed F \<equiv> is_deps (matrix F) (bound_vars F)"
+  lemma or_commute[simp]: "(a \<^bold>\<or> b) = (b \<^bold>\<or> a)"  
+    by (auto simp: sAnd_def sOr_def)
+    
+  lemma and_commute[simp]: "(a \<^bold>\<and> b) = (b \<^bold>\<and> a)"  
+    by (auto simp: sAnd_def sOr_def)
+    
+  thm add.left_commute        
+
+  lemma de_morgan_cnf: 
+    "a \<^bold>\<or> (b \<^bold>\<and> c) = (a \<^bold>\<or> b) \<^bold>\<and> (a \<^bold>\<or> c)"
+    "(a \<^bold>\<and> b) \<^bold>\<or> c = (a \<^bold>\<or> c) \<^bold>\<and> (b \<^bold>\<or> c)"
+    by (auto simp: sAnd_def sOr_def)
+  
+  lemma de_morgan_dnf: 
+    "a \<^bold>\<and> (b \<^bold>\<or> c) = (a \<^bold>\<and> b) \<^bold>\<or> (a \<^bold>\<and> c)"
+    "(a \<^bold>\<or> b) \<^bold>\<and> c = (a \<^bold>\<and> c) \<^bold>\<or> (b \<^bold>\<and> c)"
+    by (auto simp: sAnd_def sOr_def)
+    
+  lemmas to_cnf = to_nnf de_morgan_cnf
+  lemmas to_dnf = to_nnf de_morgan_dnf
+
+  lemma forall_distrib_and: "(\<^bold>\<forall>x. \<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = (\<^bold>\<forall>x. \<phi>\<^sub>1) \<^bold>\<and> (\<^bold>\<forall>x. \<phi>\<^sub>2)"
+    by (auto simp: sAnd_def sForall_def)
+  
+  lemma exists_distrib_or: "(\<^bold>\<exists>x. \<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2) = (\<^bold>\<exists>x. \<phi>\<^sub>1) \<^bold>\<or> (\<^bold>\<exists>x. \<phi>\<^sub>2)"
+    by (auto simp: sOr_def sExists_def)
+  
+  lemma forall_commute[simp]: "(\<^bold>\<forall>x. \<^bold>\<forall>y. \<phi>) = (\<^bold>\<forall>y. \<^bold>\<forall>x. \<phi>)"  
+    apply (auto simp: sForall_def)
+    by (metis fun_upd_twist)
+  
+  lemma exists_commute[simp]: "(\<^bold>\<exists>x. \<^bold>\<exists>y. \<phi>) = (\<^bold>\<exists>y. \<^bold>\<exists>x. \<phi>)"  
+    apply (auto simp: sExists_def)
+    by (metis fun_upd_twist)
+    
+  lemma quant_dup[simp]: 
+    "(\<^bold>\<forall>x. \<^bold>\<forall>x. \<phi>) = \<^bold>\<forall>x. \<phi>"
+    "(\<^bold>\<exists>x. \<^bold>\<exists>x. \<phi>) = \<^bold>\<exists>x. \<phi>"
+    "(\<^bold>\<exists>x. \<^bold>\<forall>x. \<phi>) = \<^bold>\<forall>x. \<phi>"  
+    "(\<^bold>\<forall>x. \<^bold>\<exists>x. \<phi>) = \<^bold>\<exists>x. \<phi>"
+    by (auto simp: sForall_def sExists_def)
+    
+    
+  term "\<^bold>\<forall>x. \<^bold>\<exists>y. Pos x \<^bold>\<and> Neg y"
+  
+  
+  definition "is_dep X \<phi> \<equiv> \<forall>\<sigma>\<^sub>1 \<sigma>\<^sub>2. (\<forall>x\<in>X. \<sigma>\<^sub>1 x = \<sigma>\<^sub>2 x) \<longrightarrow> \<phi> \<sigma>\<^sub>1 = \<phi> \<sigma>\<^sub>2"
+  
+  abbreviation "closed \<phi> \<equiv> is_dep {}"
+
+  lemma is_deps_mono: "X \<subseteq> X' \<Longrightarrow> is_dep X \<phi> \<Longrightarrow> is_dep X' \<phi>"
+    unfolding is_dep_def
+    apply auto
+    by blast
+  
+  lemma is_deps_not_eq[simp]: "is_dep X (\<^bold>\<not>\<phi>) \<longleftrightarrow> is_dep X \<phi>"    
+    unfolding is_dep_def sNot_def by auto
+  
+  lemma is_deps_Pos[simp]: "is_dep X (Pos x) \<longleftrightarrow> x\<in>X"  
+    unfolding is_dep_def Pos_def
+    by auto
+
+  (* Syntactic procedure to compute (overapproximation) of dependent variables *)    
+  lemma is_depsI:
+    "is_dep X \<phi> \<Longrightarrow> is_dep (X-{x}) (\<^bold>\<forall>x. \<phi>)"
+    "is_dep X \<phi> \<Longrightarrow> is_dep (X-{x}) (\<^bold>\<exists>x. \<phi>)"
+    "\<lbrakk>is_dep X\<^sub>1 \<phi>\<^sub>1; is_dep X\<^sub>2 \<phi>\<^sub>2 \<rbrakk> \<Longrightarrow> is_dep (X\<^sub>1\<union>X\<^sub>2) (\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2)"
+    "\<lbrakk>is_dep X\<^sub>1 \<phi>\<^sub>1; is_dep X\<^sub>2 \<phi>\<^sub>2 \<rbrakk> \<Longrightarrow> is_dep (X\<^sub>1\<union>X\<^sub>2) (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2)"
+    "is_dep X \<phi> \<Longrightarrow> is_dep X (\<^bold>\<not>\<phi>)"
+    "is_dep {x} (Pos x)"
+    apply simp_all
+    unfolding is_dep_def sForall_def sExists_def sAnd_def sOr_def
+    subgoal by clarsimp (smt fun_upd_def insert_Diff_single insert_iff)
+    subgoal by clarsimp (smt DiffD2 Diff_iff Diff_insert0 Diff_insert2 fun_upd_eqD fun_upd_other fun_upd_triv insert_Diff insert_iff)
+    subgoal by clarsimp blast
+    subgoal by clarsimp blast
+    done
+
+  
+  definition is_indep1 :: "'a \<Rightarrow> 'a afml \<Rightarrow> bool" 
+    where "is_indep1 x \<phi> \<equiv> \<forall>\<sigma> v. \<phi> (\<sigma>(x:=v)) = \<phi> \<sigma>"
+  definition "is_indep X \<phi> \<equiv> \<forall>x\<in>X. is_indep1 x \<phi>"
+  
+  lemma is_indep1_upd[simp]: "is_indep1 x \<phi> \<Longrightarrow> \<phi>(\<sigma>(x:=v)) = \<phi> \<sigma>"
+    unfolding is_indep1_def is_indep_def is_dep_def by auto
+  
+  lemma is_indep_simps[simp]:
+    "is_indep {} \<phi>"
+    "is_indep (insert x X) \<phi> \<longleftrightarrow> is_indep1 x \<phi> \<and> is_indep X \<phi>"
+    "is_indep (X\<^sub>1 \<union> X\<^sub>2) \<phi> \<longleftrightarrow> is_indep X\<^sub>1 \<phi> \<and> is_indep X\<^sub>2 \<phi>"
+    by (auto simp: is_indep_def is_dep_def is_indep1_def)
+
+
+  lemma is_indep1_elim_all_conv: "is_indep1 x \<phi> \<longleftrightarrow> (\<^bold>\<forall>x. \<phi>) = \<phi>"  
+    apply (auto simp: is_indep1_def sForall_def)
+    apply (smt fun_upd_upd)
+    by metis
+    
+      
+  
+  lemma is_indep1_Pos[simp]: "is_indep1 x (Pos y) \<longleftrightarrow> x\<noteq>y"  
+    unfolding is_indep1_def Pos_def
+    by auto
+    
+  lemma is_indep1_Not[simp]: "is_indep1 x (\<^bold>\<not>\<phi>) \<longleftrightarrow> is_indep1 x \<phi>"  
+    unfolding is_indep1_def sNot_def
+    by auto
+    
+  lemma is_indep1_ForallI: "is_indep1 x \<phi> \<Longrightarrow> is_indep1 x (\<^bold>\<forall>y. \<phi>)"
+    unfolding is_indep1_elim_all_conv
+    by (metis forall_commute)
+    
+  lemma is_indep1_ExistsI: "is_indep1 x \<phi> \<Longrightarrow> is_indep1 x (\<^bold>\<exists>y. \<phi>)"
+    by (metis is_indep1_ForallI is_indep1_Not push_not_qs(2))
+
+  lemma is_indep1_conjI: "\<lbrakk> is_indep1 x \<phi>\<^sub>1; is_indep1 x \<phi>\<^sub>2 \<rbrakk> \<Longrightarrow> is_indep1 x (\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2)"
+    by (simp add: forall_distrib_and is_indep1_elim_all_conv)
+  
+  lemma is_indep1_disjI: "\<lbrakk> is_indep1 x \<phi>\<^sub>1; is_indep1 x \<phi>\<^sub>2 \<rbrakk> \<Longrightarrow> is_indep1 x (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2)"
+    by (simp add: is_indep1_def sOr_def)
+    
+  lemma is_indep_Forall_same[simp]: "is_indep1 x (\<^bold>\<forall>x. \<phi>)" 
+    unfolding is_indep1_elim_all_conv by simp
+    
+  lemma is_indep_Exists_same[simp]: "is_indep1 x (\<^bold>\<exists>x. \<phi>)"
+    unfolding is_indep1_elim_all_conv by simp
+    
+                
+  lemma is_indep_Pos[simp]: "is_indep X (Pos x) \<longleftrightarrow> x\<notin>X" 
+    unfolding is_indep_def by auto
+    
+  lemma is_indep_Not[simp]: "is_indep X (\<^bold>\<not>\<phi>) \<longleftrightarrow> is_indep X \<phi>" 
+    unfolding is_indep_def by auto
+
+    
+  lemma is_indep_subst_conv[simp]: "is_indep X f \<Longrightarrow> x\<in>X \<Longrightarrow> f (\<sigma>(x:=v)) = f \<sigma>"  
+    unfolding is_indep_def is_dep_def by simp
+    
+
+  lemma is_indep1_forall[simp]: "is_indep1 x \<phi> \<Longrightarrow> (\<^bold>\<forall>x. \<phi>) = \<phi>"
+    by (auto simp: sForall_def fun_eq_iff)
+    
+  lemma is_indep1_exists[simp]: "is_indep1 x \<phi> \<Longrightarrow> (\<^bold>\<exists>x. \<phi>) = \<phi>"
+    by (auto simp: sExists_def fun_eq_iff)
+    
+  lemma is_indep_forall_disj: 
+    "is_indep1 x \<phi>\<^sub>1 \<Longrightarrow> (\<^bold>\<forall>x. \<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2) = (\<phi>\<^sub>1 \<^bold>\<or> (\<^bold>\<forall>x. \<phi>\<^sub>2))"
+    "is_indep1 x \<phi>\<^sub>1 \<Longrightarrow> (\<^bold>\<forall>x. \<phi>\<^sub>2 \<^bold>\<or> \<phi>\<^sub>1) = ((\<^bold>\<forall>x. \<phi>\<^sub>2) \<^bold>\<or> \<phi>\<^sub>1)"    
+    by (auto simp: sForall_def fun_eq_iff sOr_def)
+    
+  lemma is_indep_exists_conj: 
+    "is_indep1 x \<phi>\<^sub>1 \<Longrightarrow> (\<^bold>\<exists>x. \<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = (\<phi>\<^sub>1 \<^bold>\<and> (\<^bold>\<exists>x. \<phi>\<^sub>2))"
+    "is_indep1 x \<phi>\<^sub>1 \<Longrightarrow> (\<^bold>\<exists>x. \<phi>\<^sub>2 \<^bold>\<and> \<phi>\<^sub>1) = ((\<^bold>\<exists>x. \<phi>\<^sub>2) \<^bold>\<and> \<phi>\<^sub>1)"
+    by (auto simp: sExists_def fun_eq_iff sAnd_def)
+    
+
+  (* Arbitrary Quantifiers *)  
+  datatype quantifier = Forall | Exists
+  datatype 'a quantification = Q quantifier (qvar: 'a)
+  
+  fun quant :: "'a quantification \<Rightarrow> 'a afml \<Rightarrow> 'a afml" where
+    "quant (Q Forall x) = sForall x"
+  | "quant (Q Exists x) = sExists x"
+    
+  definition quants :: "'a quantification list \<Rightarrow> 'a afml \<Rightarrow> 'a afml" where "quants = foldr quant"
+  
+  lemma quants_simp[simp]:
+    "quants [] \<phi> = \<phi>"
+    "quants (q#qs) \<phi> = quant q (quants qs \<phi>)"
+    "quants (qs\<^sub>1@qs\<^sub>2) \<phi> = quants qs\<^sub>1 (quants qs\<^sub>2 \<phi>)"
+    unfolding quants_def by auto
+
+  fun quants_induction_scheme :: "'a quantification list \<Rightarrow> unit" where
+    "quants_induction_scheme [] = ()"
+  | "quants_induction_scheme (Q Forall _ # qs) = quants_induction_scheme qs"
+  | "quants_induction_scheme (Q Exists _ # qs) = quants_induction_scheme qs"
+  
+  lemmas quants_induct = quants_induction_scheme.induct[case_names Empty Forall Exists]
+    
+      
+  lemma quants_bound_indep1: "x\<in>qvar`set qs \<Longrightarrow> is_indep1 x (quants qs \<phi>)"  
+    apply (induction qs rule: quants_induct)
+    apply (auto simp: is_indep1_ForallI is_indep1_ExistsI)
+    done
+    
+  lemma quants_bound_indep: "is_indep (qvar`set qs) (quants qs \<phi>)"
+    by (auto simp: is_indep_def quants_bound_indep1)
+    
+  lemma quant_indep1_pull: 
+    "is_indep1 (qvar q) \<phi>\<^sub>1 \<Longrightarrow> quant q (\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = \<phi>\<^sub>1 \<^bold>\<and> quant q \<phi>\<^sub>2"
+    "is_indep1 (qvar q) \<phi>\<^sub>2 \<Longrightarrow> quant q (\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = quant q \<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2"
+    "is_indep1 (qvar q) \<phi>\<^sub>1 \<Longrightarrow> quant q (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2) = \<phi>\<^sub>1 \<^bold>\<or> quant q \<phi>\<^sub>2"
+    "is_indep1 (qvar q) \<phi>\<^sub>2 \<Longrightarrow> quant q (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2) = quant q \<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2"
+    by (cases q rule: quant.cases; 
+      auto simp: forall_distrib_and is_indep_exists_conj exists_distrib_or is_indep_forall_disj)+
+    
+  lemma quants_indep_pull: 
+    "is_indep (qvar`set qs) \<phi>\<^sub>1 \<Longrightarrow> quants qs (\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = \<phi>\<^sub>1 \<^bold>\<and> quants qs \<phi>\<^sub>2"
+    "is_indep (qvar`set qs) \<phi>\<^sub>2 \<Longrightarrow> quants qs (\<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = quants qs \<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2"
+    "is_indep (qvar`set qs) \<phi>\<^sub>1 \<Longrightarrow> quants qs (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2) = \<phi>\<^sub>1 \<^bold>\<or> quants qs \<phi>\<^sub>2"
+    "is_indep (qvar`set qs) \<phi>\<^sub>2 \<Longrightarrow> quants qs (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2) = quants qs \<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2"
+    by (induction qs; auto simp: quant_indep1_pull)+
+    
+    
+  lemma forall_reduction: 
+    assumes I: "is_indep (qvar`set qs\<^sub>2) C"  
+    shows "quants (qs\<^sub>1@Q Forall x#qs\<^sub>2) (C \<^bold>\<and> \<phi>) 
+         = quants (qs\<^sub>1@Q Forall x#qs\<^sub>2) ((\<^bold>\<forall>x. C) \<^bold>\<and> \<phi>)"
+  proof -
+    have "quants (qs\<^sub>1@Q Forall x#qs\<^sub>2) (C \<^bold>\<and> \<phi>)
+        = quants qs\<^sub>1 ((\<^bold>\<forall>x. C) \<^bold>\<and> quants (Q Forall x#qs\<^sub>2) \<phi>)"       
+      by (simp add: forall_distrib_and quants_indep_pull(1) I)
+    also have "\<dots> = quants (qs\<^sub>1@Q Forall x#qs\<^sub>2) ((\<^bold>\<forall>x. C) \<^bold>\<and> \<phi>)"
+      using I
+      by (simp add: forall_distrib_and is_indep1_ForallI is_indep_def quants_indep_pull(2))
+    finally show ?thesis .
+  qed
+    
+    
+    
+end xxx
+    
+        
+    
+  fun quants :: "'a quantifier list \<Rightarrow> 'a afml \<Rightarrow> 'a afml" where  
+    "quants [] \<phi> = \<phi>"
+  | "sem_qbf (q # qs) m = sem_quant q (sem_qbf qs m)"
+
+  fun sem_qbf_induction_scheme :: "'a quantifier list \<Rightarrow> 'a valuation \<Rightarrow> bool" where
+    "sem_qbf_induction_scheme [] _ = True"
+  | "sem_qbf_induction_scheme (Forall _ # qs) \<sigma> = (\<forall>\<sigma>. sem_qbf_induction_scheme qs \<sigma>)"
+  | "sem_qbf_induction_scheme (Exists _ # qs) \<sigma> = (\<forall>\<sigma>. sem_qbf_induction_scheme qs \<sigma>)"
+  
+  lemmas sem_qbf_induct = sem_qbf_induction_scheme.induct[case_names Matrix Forall Exists]
+    
+  definition "closed Q m \<equiv> is_deps m (qvar`set Q)"
     
   lemma sem_qbf_closed_aux: 
-    "(is_deps m (qvar`set qs \<union> {x. \<sigma>1 x = \<sigma>2 x})) \<Longrightarrow> sem_qbf_aux qs m \<sigma>1 = sem_qbf_aux qs m \<sigma>2"
+    "(is_deps m (qvar`set qs \<union> {x. \<sigma>1 x = \<sigma>2 x})) \<Longrightarrow> sem_qbf qs m \<sigma>1 = sem_qbf qs m \<sigma>2"
   proof (induction qs arbitrary: \<sigma>1 \<sigma>2)
     case Nil
     then show ?case by (auto simp: is_deps_def)
@@ -37,19 +287,106 @@ begin
     have [simp]: "(insert x (X \<union> {x. \<sigma>1 x = \<sigma>2 x})) = (X \<union> {xa. xa \<noteq> x \<longrightarrow> \<sigma>1 xa = \<sigma>2 xa})" for x X
       by blast
       
-    have "sem_qbf_aux qs m (\<sigma>1(qvar a := v)) = sem_qbf_aux qs m (\<sigma>2(qvar a := v))" for v
+    have "sem_qbf qs m (\<sigma>1(qvar a := v)) = sem_qbf qs m (\<sigma>2(qvar a := v))" for v
       apply (rule Cons.IH)
       using Cons.prems by auto
       
     then show ?case by (cases a) auto
   qed
       
-  lemma sem_qbf_closed: "closed F \<Longrightarrow> sem_qbf_aux (quants F) (matrix F) \<sigma> = sem_qbf F"
-    unfolding closed_def sem_qbf_def bound_vars_def
-    using sem_qbf_closed_aux[of "matrix F" "quants F" \<sigma> "\<lambda>_. False"]
-    using is_deps_mono 
+  lemma sem_qbf_closed: "closed Q m \<Longrightarrow> sem_qbf Q m \<sigma>\<^sub>1 = sem_qbf Q m (\<lambda>_. False)"
+    unfolding closed_def
+    using sem_qbf_closed_aux is_deps_mono 
     by blast
   
+    
+  lemma sem_qbf_matrix_mono: "(\<forall>\<sigma>. m \<sigma> \<longrightarrow> m' \<sigma>) \<Longrightarrow> 
+    sem_qbf Q m \<sigma> \<Longrightarrow> sem_qbf Q m' \<sigma>"
+    by (induction Q \<sigma> rule: sem_qbf_induct) auto
+    
+  lemma sem_qbf_mono: 
+    assumes "\<forall>\<sigma>. sem_qbf Q\<^sub>2 m \<sigma> \<longrightarrow> sem_qbf Q\<^sub>2' m' \<sigma>"  
+    assumes "sem_qbf (Q\<^sub>1@Q\<^sub>2) m \<sigma>"
+    shows "sem_qbf (Q\<^sub>1@Q\<^sub>2') m' \<sigma>"
+    using assms by (induction Q\<^sub>1 \<sigma> rule: sem_qbf_induct) auto
+    
+  lemma sem_qbf_append[simp]: "sem_qbf (Q\<^sub>1@Q\<^sub>2) m = sem_qbf Q\<^sub>1 (sem_qbf Q\<^sub>2 m)"
+    by (induction Q\<^sub>1) auto
+    
+    
+  lemma fun_upd_twist_cases:
+    "f(x\<^sub>1:=y\<^sub>1, x\<^sub>2:=y\<^sub>2) = (if x\<^sub>1=x\<^sub>2 then f(x\<^sub>2:=y\<^sub>2) else f(x\<^sub>2:=y\<^sub>2, x\<^sub>1:=y\<^sub>1))" by auto
+    
+  lemma move_forall: "sem_qbf Q (sem_quant (Forall x) m) \<sigma> \<Longrightarrow> sem_qbf (Forall x # Q) m \<sigma>"
+    apply (induction Q \<sigma> rule: sem_qbf_induct)
+    subgoal by simp
+    subgoal by (fastforce simp: fun_upd_twist_cases[where x\<^sub>1=x])
+    subgoal by (fastforce simp: fun_upd_twist_cases[where x\<^sub>1=x])
+    done
+  
+    
+  lemma sem_qbf_reorder_quant:
+    assumes "sem_qbf (filter is_Exists Q @ filter is_Forall Q) m \<sigma>"  
+    shows "sem_qbf Q m \<sigma>"
+    using assms
+    apply (induction Q \<sigma> rule: sem_qbf_induct)
+    apply (auto dest: move_forall)
+    done
+  
+  lemma eq_on_except_conv: "(\<forall>x\<in>- {x}. \<sigma> x = \<sigma>' x) \<longleftrightarrow> (\<exists>v. \<sigma> = \<sigma>'(x:=v))"    
+    by (auto split: if_splits intro!: exI[where x="\<sigma> x"])
+    
+  definition "indep f x \<equiv> is_deps f (-{x})"  
+    
+  lemma indep_sng_conv: "indep f x \<longleftrightarrow> (\<forall>\<sigma> v. f (\<sigma>(x:=v)) = f \<sigma>)"  
+    unfolding is_deps_def indep_def
+    by (auto simp: eq_on_except_conv)
+    
+  lemma sem_quant_drop_indep: 
+    assumes "indep m\<^sub>1 (qvar q)"
+    shows "sem_quant q (\<lambda>\<sigma>. m\<^sub>1 \<sigma> \<and> m\<^sub>2 \<sigma>) = (\<lambda>\<sigma>. m\<^sub>1 \<sigma> \<and> sem_quant q m\<^sub>2 \<sigma>)"
+    using assms 
+    by (cases q) (auto simp: fun_eq_iff indep_sng_conv)
+    
+         
+  lemma forall_distrib_and: "sem_quant (Forall x) (\<lambda>\<sigma>. m\<^sub>1 \<sigma> \<and> m\<^sub>2 \<sigma>) 
+    = (\<lambda>\<sigma>. sem_quant (Forall x) m\<^sub>1 \<sigma> \<and> sem_quant (Forall x) m\<^sub>2 \<sigma>)"
+    by auto
+        
+    
+  lemma qbf_pull_indep:
+    assumes "\<forall>x\<in>qvar`set Q\<^sub>2. indep m\<^sub>1 x"
+    shows "sem_qbf Q\<^sub>2 (\<lambda>\<sigma>. m\<^sub>1 \<sigma> \<and> m\<^sub>2 \<sigma>) = (\<lambda>\<sigma>. m\<^sub>1 \<sigma> \<and> sem_qbf Q\<^sub>2 m\<^sub>2 \<sigma>)"    
+    using assms
+    by (induction Q\<^sub>2) (auto simp: sem_quant_drop_indep)
+
+  lemma
+    assumes "\<forall>x\<in>qvar`set Q\<^sub>2. indep m\<^sub>1 x"
+    shows "sem_qbf (Q\<^sub>1@Forall x#Q\<^sub>2) (\<lambda>\<sigma>. m\<^sub>1 \<sigma> \<and> m\<^sub>2 \<sigma>)
+      = sem_qbf (Q\<^sub>1@Forall x#Q\<^sub>2) (\<lambda>\<sigma>. (\<forall>v. m\<^sub>1 (\<sigma>(x:=v))) \<and> m\<^sub>2 \<sigma>)"  
+    proof -
+      from assms have 1: "\<forall>x\<in>qvar`set Q\<^sub>2. indep (\<lambda>\<sigma>. (\<forall>v. m\<^sub>1 (\<sigma>(x := v)))) x"
+        by (auto simp: indep_sng_conv)
+    
+      then show ?thesis
+        using assms
+        apply (simp add: qbf_pull_indep fun_eq_iff forall_distrib_and sem_quant.simps[abs_def])
+        thm qbf_pull_indep[where m\<^sub>1 = "(\<lambda>\<sigma>. \<forall>v. m\<^sub>1 (\<sigma>(x := v)))"]
+      
+      
+      
+        
+    
+  definition "rem_forall_Q Q = filter is_Exists Q"
+  definition "rem_forall_m Q m = "
+    
+  lemma sem_qbf_rem_forall:
+    assumes "sem_qbf_aux (filter is_Exists Q) m \<sigma>"
+    shows "sem_qbf_aux Q m \<sigma>"
+    
+    
+        
+    
     
 section \<open>CNF/DNF Matrix\<close>    
         
