@@ -96,12 +96,12 @@ static byte_t *mark_occs = NULL;
 
 static QRPCOptions options =
   {
-    .verbosity = 0,
+    .verbosity = 2,
     .is_bqrp = 0,
     .print_proof = 0,
     .print_proof_only = 0,
     .print_statistics = 0,
-    .check_icubes = 0
+    .check_icubes = 1
   };
 
 static QRPCStatistics statistics;
@@ -985,6 +985,7 @@ check_initial_cubes (void)
       }
     }
 
+    // This is the call that gives you the 
     if (picosat_sat (-1) == PICOSAT_UNSATISFIABLE)
     {
       if (options.verbosity >= 1)
