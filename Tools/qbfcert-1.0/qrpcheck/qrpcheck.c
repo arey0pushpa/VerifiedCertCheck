@@ -96,7 +96,7 @@ static byte_t *mark_occs = NULL;
 
 static QRPCOptions options =
   {
-    .verbosity = 2,
+    .verbosity = 0,
     .is_bqrp = 0,
     .print_proof = 0,
     .print_proof_only = 0,
@@ -178,6 +178,10 @@ static void parse_qdimacs (char *, char *, long);
 #endif
 static void cleanup (void);
 
+static struct Node {
+  int data;
+  struct Node * next;
+};
 
 int 
 main (int argc, char **argv)
@@ -902,6 +906,10 @@ check_initial_cubes (void)
   unsigned int i;
   StepId *tmp;
   Lit lit;
+  struct Node* head = NULL;
+  //struct Node* second = NULL;
+  head = (struct Node*)malloc(sizeof(struct Node));
+  //second = (struct Node*)malloc(sizeof(struct Node));
 
   read_literal_qrp = qrp_format == QRP_BINARY ? &read_bin_lit : &read_ascii_lit;
   read_literal_qdimacs = &read_ascii_lit;
@@ -967,6 +975,8 @@ check_initial_cubes (void)
         }
         if (options.verbosity > 1)
           fprintf (stderr, " %d", lit);
+        head->data = lit;
+        head->next = NULL;
         picosat_add (lit);
       }
       if (options.verbosity > 1)
@@ -986,11 +996,20 @@ check_initial_cubes (void)
     }
 
     // This is the call that gives you the 
-    if (picosat_sat (-1) == PICOSAT_UNSATISFIABLE)
+    int result_picosat_call = picosat_sat(-1);
+    if (result_picosat_call == PICOSAT_UNSATISFIABLE)
     {
       if (options.verbosity >= 1)
         fprintf (stderr, "FAILED (unsat)\n");
       return ERROR;
+    } else if (result_picosat_call == PICOSAT_SATISFIABLE) {
+         struct Node *cursor = head;
+         while (cursor != NULL) {
+         fprintf (stderr, "The assignment for var %d is %d", cursor->data, picosat_deref (cursor->data));
+         fprintf(stderr, " \n");
+         cursor = cursor->next;
+         }
+       //printf("\nThe assignment for var 10 is %d", picosat_deref (-10));
     }
 
     if (options.verbosity >= 1)

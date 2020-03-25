@@ -25,22 +25,22 @@ IN THE SOFTWARE.
 
 /*------------------------------------------------------------------------*/
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /*------------------------------------------------------------------------*/
 /* These are the return values for 'picosat_sat' as for instance
  * standardized by the output format of the SAT competition.
  */
-#define PICOSAT_UNKNOWN         0
-#define PICOSAT_SATISFIABLE     10
-#define PICOSAT_UNSATISFIABLE   20
+#define PICOSAT_UNKNOWN 0
+#define PICOSAT_SATISFIABLE 10
+#define PICOSAT_UNSATISFIABLE 20
 
 /*------------------------------------------------------------------------*/
 
-const char *picosat_version (void);
-const char *picosat_config (void);
-const char *picosat_copyright (void);
+const char *picosat_version(void);
+const char *picosat_config(void);
+const char *picosat_copyright(void);
 
 /*------------------------------------------------------------------------*/
 /* You can make picosat use an external memory manager instead of the one
@@ -51,14 +51,14 @@ const char *picosat_copyright (void);
  * 'free'.  As exception the 'resize' and 'delete' function have as third
  * argument the number of bytes of the block given as second argument.
  */
-void picosat_set_new (void * mgr, void * (*)(void *, size_t));
-void picosat_set_resize (void *, void * (*)(void *, void *, size_t, size_t));
-void picosat_set_delete (void *, void (*)(void *, void *, size_t));
+void picosat_set_new(void *mgr, void *(*)(void *, size_t));
+void picosat_set_resize(void *, void *(*)(void *, void *, size_t, size_t));
+void picosat_set_delete(void *, void (*)(void *, void *, size_t));
 
 /*------------------------------------------------------------------------*/
 
-void picosat_init (void);               /* constructor */
-void picosat_reset (void);              /* destructor */
+void picosat_init(void);  /* constructor */
+void picosat_reset(void); /* destructor */
 
 /*------------------------------------------------------------------------*/
 /* The following five functions are essentially parameters to 'init', and
@@ -68,19 +68,19 @@ void picosat_reset (void);              /* destructor */
 
 /* Set output file, default is 'stdout'.
  */
-void picosat_set_output (FILE *);
+void picosat_set_output(FILE *);
 
 /* Measure all time spent in all calls in the solver.  By default only the
  * time spent in 'picosat_sat' is measured.  Enabling this function may for
  * instance tripple the time needed to add large CNFs, since every call to
  * 'picosat_add' will trigger a call to 'getrusage'.
  */
-void picosat_measure_all_calls (void);
+void picosat_measure_all_calls(void);
 
 /* Set the prefix used for printing verbose messages and statistics.
  * Default is "c ".
  */
-void picosat_set_prefix (const char *);
+void picosat_set_prefix(const char *);
 
 /* The function 'picosat_set_incremental_rup_file' produces
  * a proof trace in RUP format on the fly.  The resulting RUP file may
@@ -92,9 +92,9 @@ void picosat_set_prefix (const char *);
  * 'picosat_set_output'.  Verbose messages are prefixed with the string set
  * by 'picosat_set_prefix'.
  */
-void picosat_set_verbosity (int new_verbosity_level);
+void picosat_set_verbosity(int new_verbosity_level);
 
-/* Set default initial phase: 
+/* Set default initial phase:
  *
  *   0 = false
  *   1 = true
@@ -105,7 +105,7 @@ void picosat_set_verbosity (int new_verbosity_level);
  * be assigned the previous value if it is picked as decision variable.
  * The initial assignment can be choosen with this function.
  */
-void picosat_set_global_default_phase (int);
+void picosat_set_global_default_phase(int);
 
 /* Set next/initial phase of a particular variable if picked as decision
  * variable.  Second argument 'phase' has the following meaning:
@@ -121,41 +121,41 @@ void picosat_set_global_default_phase (int);
  * then this forced assignment is the next phase if this variable is
  * used as decision variable.
  */
-void picosat_set_default_phase_lit (int lit, int phase);
+void picosat_set_default_phase_lit(int lit, int phase);
 
 /* You can reset all phases by the following function.
  */
-void picosat_reset_phases (void);
+void picosat_reset_phases(void);
 
-/* Scores can be erased as well.  Not however, that even after erasing 
+/* Scores can be erased as well.  Not however, that even after erasing
  * scores and phases, learned clauses are kept.  In addition head tail
  * pointers for literals are not moved either.  So expect to be a difference
  * between calling the solver in incremental mode or with a fresh copy of
  * the CNF.
  */
-void picosat_reset_scores (void);
+void picosat_reset_scores(void);
 
 /* Reset assignment if in SAT state and then remove the given percentage of
  * less active (large) learned clauses.  If you specify 100% all large
  * learned clauses are removed.
  */
-void picosat_remove_learned (unsigned percentage);
+void picosat_remove_learned(unsigned percentage);
 
 /* Set some variables to be more important than others.  These variables are
  * always used as decisions before other variables are used.  Dually there
  * is a set of variables that is used last.  The default is
  * to mark all variables as being indifferent only.
  */
-void picosat_set_more_important_lit (int lit);
-void picosat_set_less_important_lit (int lit);
+void picosat_set_more_important_lit(int lit);
+void picosat_set_less_important_lit(int lit);
 
 /* Allows to print to internal 'out' file from client.
  */
-void picosat_message (int verbosity_level, const char * fmt, ...);
+void picosat_message(int verbosity_level, const char *fmt, ...);
 
 /* Deprecated!
  */
-#define picosat_enable_verbosity() picosat_set_verbosity (1)
+#define picosat_enable_verbosity() picosat_set_verbosity(1)
 
 /* Set a seed for the random number generator.  The random number generator
  * is currently just used for generating random decisions.  In our
@@ -163,7 +163,7 @@ void picosat_message (int verbosity_level, const char * fmt, ...);
  * examples, but was rather helpful to randomize the solver in order to
  * do proper benchmarking of different internal parameter sets.
  */
-void picosat_set_seed (unsigned random_number_generator_seed);
+void picosat_set_seed(unsigned random_number_generator_seed);
 
 /* If you ever want to extract cores or proof traces with the current
  * instance of PicoSAT initialized with 'picosat_init', then make sure to
@@ -178,7 +178,7 @@ void picosat_set_seed (unsigned random_number_generator_seed);
  * The return value is non-zero if code for generating traces is including
  * and it is zero if traces can not be generated.
  */
-int picosat_enable_trace_generation (void);
+int picosat_enable_trace_generation(void);
 
 /* You can dump proof traces in RUP format incrementally even without
  * keeping the proof trace in memory.  The advantage is a reduction of
@@ -186,7 +186,7 @@ int picosat_enable_trace_generation (void);
  * clausal core.  Beside the file the additional parameters denotes the
  * maximal number of variables and the number of original clauses.
  */
-void picosat_set_incremental_rup_file (FILE * file, int m, int n);
+void picosat_set_incremental_rup_file(FILE *file, int m, int n);
 
 /*------------------------------------------------------------------------*/
 /* This function returns the next available unused variable index and
@@ -195,7 +195,7 @@ void picosat_set_incremental_rup_file (FILE * file, int m, int n);
  * 'picosat_sat', 'picosat_deref' and particularly for 'picosat_changed',
  * this variable is treated as if it had been used.
  */
-int picosat_inc_max_var (void);
+int picosat_inc_max_var(void);
 
 /*------------------------------------------------------------------------*/
 /* If you know a good estimate on how many variables you are going to use
@@ -204,23 +204,23 @@ int picosat_inc_max_var (void);
  * Beside exactly allocating enough variables it has the same effect as
  * calling 'picosat_inc_max_var'.
  */
-void picosat_adjust (int max_idx);
+void picosat_adjust(int max_idx);
 
 /*------------------------------------------------------------------------*/
 /* Statistics.
  */
-int picosat_variables (void);                           /* p cnf <m> n */
-int picosat_added_original_clauses (void);              /* p cnf m <n> */
-size_t picosat_max_bytes_allocated (void);
-double picosat_time_stamp (void);                       /* ... in process */
-void picosat_stats (void);                              /* > output file */
-unsigned long long picosat_propagations (void);		/* #propagations */
+int picosat_variables(void);              /* p cnf <m> n */
+int picosat_added_original_clauses(void); /* p cnf m <n> */
+size_t picosat_max_bytes_allocated(void);
+double picosat_time_stamp(void);               /* ... in process */
+void picosat_stats(void);                      /* > output file */
+unsigned long long picosat_propagations(void); /* #propagations */
 
 /* The time spent in the library or in 'picosat_sat'.  The former is only
  * returned if, right after initialization 'picosat_measure_all_calls'
  * is called.
  */
-double picosat_seconds (void);
+double picosat_seconds(void);
 
 /*------------------------------------------------------------------------*/
 /* Add a literal of the next clause.  A zero terminates the clause.  The
@@ -228,11 +228,11 @@ double picosat_seconds (void);
  * assignment.   The return value is the original clause index to which
  * this literal respectively the trailing zero belong starting at 0.
  */
-int picosat_add (int lit);
+int picosat_add(int lit);
 
 /* Print the CNF to the given file in DIMACS format.
  */
-void picosat_print (FILE *);
+void picosat_print(FILE *);
 
 /* You can add arbitrary many assumptions before the next 'picosat_sat'.
  * This is similar to the using assumptions in MiniSAT, except that you do
@@ -249,7 +249,7 @@ void picosat_print (FILE *);
  * call to 'picosat_sat' returns.  Valid means they remain 'assumed' until a
  * call to 'picosat_add', 'picosat_assume', or another 'picosat_sat,
  * following the first 'picosat_sat'.  They need to stay valid for
- * 'picosat_failed_assumption' to return correct values.  
+ * 'picosat_failed_assumption' to return correct values.
  *
  * Example:
  *
@@ -258,7 +258,7 @@ void picosat_print (FILE *);
  *   res = picosat_sat (1000);  // assumes 1 and -2 to hold
  *                              // 1000 decisions max.
  *
- *   if (res == PICOSAT_UNSATISFIABLE) 
+ *   if (res == PICOSAT_UNSATISFIABLE)
  *     {
  *       if (picosat_failed_assumption (1))
  *         // unit clause '1 0' was necessary to derive UNSAT
@@ -314,7 +314,7 @@ void picosat_print (FILE *);
  *       picosat_sat (-1);
  *     }
  */
-void picosat_assume (int lit);
+void picosat_assume(int lit);
 
 /*------------------------------------------------------------------------*/
 /* This is an experimental feature for handling 'all different constraints'
@@ -324,42 +324,42 @@ void picosat_assume (int lit);
  *
  * TODO: also handle top level assigned literals here.
  */
-void picosat_add_ado_lit (int);
+void picosat_add_ado_lit(int);
 
 /*------------------------------------------------------------------------*/
 /* Call the main SAT routine.  A negative decision limit sets no limit on
  * the number of decisions.  The return values are as above, e.g.
  * 'PICOSAT_UNSATISFIABLE', 'PICOSAT_SATISFIABLE', or 'PICOSAT_UNKNOWN'.
  */
-int picosat_sat (int decision_limit);
+int picosat_sat(int decision_limit);
 
 /* As alternative to a decision limit you can use the number of propagations
  * as limit.  This is more linearly related to execution time.
  */
-void picosat_set_propagation_limit (unsigned long long limit);
+void picosat_set_propagation_limit(unsigned long long limit);
 
 /* Return last result of calling 'picosat_sat' or '0' if not called.
  */
-int picosat_res ();
+int picosat_res();
 
 /* After 'picosat_sat' was called and returned 'PICOSAT_SATISFIABLE', then
  * the satisfying assignment can be obtained by 'dereferencing' literals.
  * The value of the literal is return as '1' for 'true',  '-1' for 'false'
  * and '0' for an unknown value.
  */
-int picosat_deref (int lit);
+int picosat_deref(int lit);
 
 /* Same as before but just returns true resp. false if the literals is
  * forced to this assignment at the top level.  This function does not
  * require that 'picosat_sat' was called and also does not internally reset
  * incremental usage.
  */
-int picosat_deref_toplevel (int lit);
+int picosat_deref_toplevel(int lit);
 
 /* Returns non zero if the CNF is unsatisfiable because an empty clause was
  * added or derived.
  */
-int picosat_inconsistent  (void);
+int picosat_inconsistent(void);
 
 /* Returns non zero if the literal is a failed assumption, which is defined
  * as an assumption used to derive unsatisfiability.  This is as accurate as
@@ -369,14 +369,14 @@ int picosat_inconsistent  (void);
  * more effectice.  The function can only be called as long the current
  * assumptions are valid.  See 'picosat_assume' for more details.
  */
-int picosat_failed_assumption (int lit);
+int picosat_failed_assumption(int lit);
 
 /* Returns a zero terminated list of failed assumption in the last call to
  * 'picosat_sat'.  The pointer is valid until the next call to
  * 'picosat_sat' or 'picosat_failed_assumptions'.  It only makes sense if the
  * last call to 'picosat_sat' returned 'PICOSAT_UNSATISFIABLE'.
  */
-const int * picosat_failed_assumptions (void);
+const int *picosat_failed_assumptions(void);
 
 /* Returns a zero terminated minimized list of failed assumption for the last
  * call to 'picosat_sat'.  The pointer is valid until the next call to this
@@ -397,7 +397,7 @@ const int * picosat_failed_assumptions (void);
  * assumption can not be removed it is permanently assigned true, otherwise
  * if it turns out to be redundant it is permanently assumed to be false.
  */
-const int * picosat_mus_assumptions (void *, void(*)(void*,const int*),int);
+const int *picosat_mus_assumptions(void *, void (*)(void *, const int *), int);
 
 /*------------------------------------------------------------------------*/
 /* Assume that a previous call to 'picosat_sat' in incremental usage,
@@ -419,7 +419,7 @@ const int * picosat_mus_assumptions (void *, void(*)(void*,const int*),int);
  * direcetion as well by using a counter of variables that have an odd
  * number of flips.  But this is not implemented yet.
  */
-int picosat_changed (void);
+int picosat_changed(void);
 
 /*------------------------------------------------------------------------*/
 /* The following six functions internally extract the variable and clausal
@@ -434,32 +434,32 @@ int picosat_changed (void);
 /* This function determines whether the i'th added original clause is in the
  * core.  The 'i' is the return value of 'picosat_add', which starts at zero
  * and is incremented by one after a original clause is added (that is after
- * 'picosat_add (0)').  For the index 'i' the following has to hold: 
+ * 'picosat_add (0)').  For the index 'i' the following has to hold:
  *
  *   0 <= i < picosat_added_original_clauses ()
  */
-int picosat_coreclause (int i);
+int picosat_coreclause(int i);
 
 /* This function gives access to the variable core, which is made up of the
  * variables that were resolved in deriving the empty clauses.
  */
-int picosat_corelit (int lit);
+int picosat_corelit(int lit);
 
 /* Write the clauses that were used in deriving the empty clause to a file
  * in DIMACS format.
  */
-void picosat_write_clausal_core (FILE * core_file);
+void picosat_write_clausal_core(FILE *core_file);
 
 /* Write a proof trace in TraceCheck format to a file.
  */
-void picosat_write_compact_trace (FILE * trace_file);
-void picosat_write_extended_trace (FILE * trace_file);
+void picosat_write_compact_trace(FILE *trace_file);
+void picosat_write_extended_trace(FILE *trace_file);
 
 /* Write a RUP trace to a file.  This trace file contains only the learned
  * core clauses while this is not necessarily the case for the RUP file
  * obtained with 'picosat_set_incremental_rup_file'.
  */
-void picosat_write_rup_trace (FILE * trace_file);
+void picosat_write_rup_trace(FILE *trace_file);
 
 /*------------------------------------------------------------------------*/
 /* Keeping the proof trace around is not necessary if an over-approximation
@@ -468,6 +468,6 @@ void picosat_write_rup_trace (FILE * trace_file);
  * a subset of the 'used' literals.
  */
 
-int picosat_usedlit (int lit);
+int picosat_usedlit(int lit);
 /*------------------------------------------------------------------------*/
 #endif
