@@ -997,8 +997,10 @@ check_initial_cubes (void)
       }
     }
 
-    // This is the call that gives you the 
+    // Store the result of the PICOSAT call. 
     int result_picosat_call = picosat_sat(-1);
+    int sat_assgmt = 0;
+    int lit_value = 0;
     if (result_picosat_call == PICOSAT_UNSATISFIABLE)
     {
       if (options.verbosity >= 1)
@@ -1007,11 +1009,11 @@ check_initial_cubes (void)
     } else if (result_picosat_call == PICOSAT_SATISFIABLE) {
          struct Node *cursor = head;
          while (cursor != NULL) {
-         fprintf (stderr, "The assignment for var %d is %d", cursor->data, picosat_deref (cursor->data));
-         fprintf(stderr, " \n");
-         cursor = cursor->next;
+           sat_assgmt = picosat_deref (cursor->data);
+           lit_value = cursor->data;
+           sat_assgmt > 0 ? fprintf(stderr, "%d %d %d\n", tmp[0], lit_value, 0): fprintf(stderr, "%d %d %d\n", tmp[0], lit_value * -1, 0);
+           cursor = cursor->next;
          }
-       //printf("\nThe assignment for var 10 is %d", picosat_deref (-10));
     }
 
     if (options.verbosity >= 1)
