@@ -98,7 +98,7 @@ static QRPCOptions options =
   {
     .verbosity = 0,
     .is_bqrp = 0,
-    .print_proof = 0,
+    .print_proof = 1,
     .print_proof_only = 0,
     .print_statistics = 0,
     .check_icubes = 1
@@ -301,6 +301,8 @@ main (int argc, char **argv)
     TIMER_WC (statistics.time_wc_pqrp);
   }
   
+  // Parse the trace file and add informtaion 
+  // to the internal datastruture 'steps'
   parse_qrp (filename_qrp, in_qrp, in_qrp_size);
 
   if (options.print_statistics)
