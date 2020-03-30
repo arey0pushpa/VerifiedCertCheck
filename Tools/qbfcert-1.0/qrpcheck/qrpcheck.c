@@ -101,7 +101,7 @@ static QRPCOptions options =
     .print_proof = 1,
     .print_proof_only = 0,
     .print_statistics = 0,
-    .check_icubes = 1
+    .check_icubes = 0
   };
 
 static QRPCStatistics statistics;
