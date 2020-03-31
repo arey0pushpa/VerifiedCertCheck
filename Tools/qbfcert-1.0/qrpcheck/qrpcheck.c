@@ -178,10 +178,10 @@ static void parse_qdimacs (char *, char *, long);
 #endif
 static void cleanup (void);
 
-static struct Node {
+struct Node {
   int data;
   struct Node * next;
-};
+} Node;
 
 int 
 main (int argc, char **argv)
