@@ -712,8 +712,14 @@ CHECK_ANTECEDENTS:
   return SUCCESS;
 }
 
+// static int compare(const void *a, const void *b) {
+//  return (*(int *)a - *(int *)b);
+//}
+//
 static int compare(const void *a, const void *b) {
-  return (*(int *)a - *(int *)b);
+  int lit1 = *((int *)a);
+  int lit2 = *((int *)b);
+  return (abs(lit1) - abs(lit2));
 }
 
 static int check_proof(void) {
