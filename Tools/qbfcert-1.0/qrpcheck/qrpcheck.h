@@ -1,7 +1,7 @@
 /*
  This file is part of QRPcheck.
 
- QRPcheck, a proof checker for Q-Resolution Proofs in QRP format. 
+ QRPcheck, a proof checker for Q-Resolution Proofs in QRP format.
  Copyright (c) 2011, 2012 Aina Niemetz.
 
  QRPcheck is free software: you can redistribute it and/or modify
@@ -21,7 +21,6 @@
 #ifndef INCLUDE_QRPC_H
 #define INCLUDE_QRPC_H
 
-
 typedef int Lit;
 typedef unsigned int VarId;
 typedef unsigned int StepId;
@@ -29,48 +28,43 @@ typedef unsigned int ClauseId;
 
 typedef char byte_t;
 
-
 #define SUCCESS 0
 #define ERROR 1
 
-
-#define QRPC_ABORT(cond, msg, ...)                 \
-  if (cond)                                        \
-  {                                                \
-    fprintf (stderr, "[QRPcheck] %s: ", __func__); \
-    fprintf (stderr, msg, ## __VA_ARGS__);         \
-    fprintf (stderr, "\n");                        \
-    cleanup ();                                    \
-    abort ();                                      \
+#define QRPC_ABORT(cond, msg, ...)                \
+  if (cond) {                                     \
+    fprintf(stderr, "[QRPcheck] %s: ", __func__); \
+    fprintf(stderr, msg, ##__VA_ARGS__);          \
+    fprintf(stderr, "\n");                        \
+    cleanup();                                    \
+    abort();                                      \
   }
 
-#define QRPC_ABORT_PARSER(cond, msg, ...)                                 \
-  if (cond)                                                               \
-  {                                                                       \
-    fprintf (stderr, "[QRPcheck] %s:%d:%d: ", p.filename, p.line, p.col); \
-    fprintf (stderr, msg, ##__VA_ARGS__);                                 \
-    fprintf (stderr, "\n");                                               \
-    cleanup ();                                                           \
-    abort ();                                                             \
+#define QRPC_ABORT_PARSER(cond, msg, ...)                                \
+  if (cond) {                                                            \
+    fprintf(stderr, "[QRPcheck] %s:%d:%d: ", p.filename, p.line, p.col); \
+    fprintf(stderr, msg, ##__VA_ARGS__);                                 \
+    fprintf(stderr, "\n");                                               \
+    cleanup();                                                           \
+    abort();                                                             \
   }
 
-#define QRPC_REALLOC(a, old_size, new_size)                                    \
-  do                                                                           \
-  {                                                                            \
-    a = (typeof (a)) realloc (a, (new_size) * sizeof (typeof (*a)));           \
-    QRPC_ABORT (a == NULL, "memory (re)allocation failed");                    \
-    if ((unsigned int) (new_size) > (old_size))                                \
-      memset (a + old_size, 0, (new_size - (old_size)) * sizeof (typeof (*a)));\
+#define QRPC_REALLOC(a, old_size, new_size)                                  \
+  do {                                                                       \
+    a = (typeof(a))realloc(a, (new_size) * sizeof(typeof(*a)));              \
+    QRPC_ABORT(a == NULL, "memory (re)allocation failed");                   \
+    if ((unsigned int)(new_size) > (old_size))                               \
+      memset(a + old_size, 0, (new_size - (old_size)) * sizeof(typeof(*a))); \
   } while (0)
-  
+
 /* ------------------------------------------------------------------------ */
 
 #define NONE 0
-#define POS  1
-#define NEG  2
-#define DCP  3   /* don't care, but must be pos */
-#define DCN  4   /* don't care, but must be neg */
-#define DCPN 5   /* don't care, can be both, don't care if neg or pos occ */
+#define POS 1
+#define NEG 2
+#define DCP 3  /* don't care, but must be pos */
+#define DCN 4  /* don't care, but must be neg */
+#define DCPN 5 /* don't care, can be both, don't care if neg or pos occ */
 
 #define DELETED 1
 
@@ -78,182 +72,160 @@ typedef char byte_t;
 #define SET_MARK(vid, ant, mark) mark_occs[vid] = ((mark) | ((ant) << 3))
 #define GET_ANT_MARK(vid) ((mark_occs[vid] & 8) >> 3)
 
-#define PRINT_MARK(vid)                         \
-  do                                            \
-  {                                             \
-    fprintf (stderr, "%d [", vars[vid].idx);    \
-    switch (GET_MARK (vid))                     \
-    {                                           \
-      case POS: fprintf (stderr, "POS"); break; \
-      case NEG: fprintf (stderr, "NEG"); break; \
-      case DCN: fprintf (stderr, "DCN"); break; \
-      case DCP: fprintf (stderr, "DCP"); break; \
-      case DCPN: fprintf (stderr, "DCPN"); break; \
-      default:  fprintf (stderr, "NONE");       \
-    }                                           \
-    fprintf (stderr, "] ");                     \
+#define PRINT_MARK(vid)                     \
+  do {                                      \
+    fprintf(stderr, "%d [", vars[vid].idx); \
+    switch (GET_MARK(vid)) {                \
+      case POS:                             \
+        fprintf(stderr, "POS");             \
+        break;                              \
+      case NEG:                             \
+        fprintf(stderr, "NEG");             \
+        break;                              \
+      case DCN:                             \
+        fprintf(stderr, "DCN");             \
+        break;                              \
+      case DCP:                             \
+        fprintf(stderr, "DCP");             \
+        break;                              \
+      case DCPN:                            \
+        fprintf(stderr, "DCPN");            \
+        break;                              \
+      default:                              \
+        fprintf(stderr, "NONE");            \
+    }                                       \
+    fprintf(stderr, "] ");                  \
   } while (0)
 
 /* ------------------------------------------------------------------------ */
 
 #define STACK_SIZE 100
 
-#define STACK_DECLARE(type)       \
-  typedef struct                  \
-  {                               \
-    unsigned long size;           \
-    type *bp;                     \
-    type *sp;                     \
-  } type ## Stack; 
+#define STACK_DECLARE(type) \
+  typedef struct {          \
+    unsigned long size;     \
+    type *bp;               \
+    type *sp;               \
+  } type##Stack;
 
-#define STACK_INIT(stack, stack_size)                               \
-  do                                                                \
-  {                                                                 \
-    QRPC_ABORT (stack_size <= 0, "invalid stack size");             \
-    stack.size = stack_size;                                        \
-    stack.bp = malloc (stack.size * sizeof (typeof (*stack.bp)));   \
-    QRPC_ABORT (stack.bp == NULL, "memory allocation failed");      \
-    memset (stack.bp, 0, stack.size * sizeof (typeof (*stack.bp))); \
-    stack.sp = stack.bp;                                            \
+#define STACK_INIT(stack, stack_size)                            \
+  do {                                                           \
+    QRPC_ABORT(stack_size <= 0, "invalid stack size");           \
+    stack.size = stack_size;                                     \
+    stack.bp = malloc(stack.size * sizeof(typeof(*stack.bp)));   \
+    QRPC_ABORT(stack.bp == NULL, "memory allocation failed");    \
+    memset(stack.bp, 0, stack.size * sizeof(typeof(*stack.bp))); \
+    stack.sp = stack.bp;                                         \
   } while (0)
 
-#define PUSH(stack, num)                                              \
-  do                                                                  \
-  {                                                                   \
-    *stack.sp = num;                                                  \
-    stack.sp += 1;                                                    \
-    if ((unsigned int) (stack.sp - stack.bp) >= stack.size)           \
-    {                                                                 \
-      stack.size <<= 1;                                               \
-      stack.bp = (typeof (stack.bp))                                  \
-        realloc (stack.bp, stack.size * sizeof (typeof (*stack.bp))); \
-      QRPC_ABORT (stack.bp == NULL, "memory reallocation failed");    \
-      stack.sp = stack.bp + (stack.size >> 1 );                       \
-    }                                                                 \
+#define PUSH(stack, num)                                          \
+  do {                                                            \
+    *stack.sp = num;                                              \
+    stack.sp += 1;                                                \
+    if ((unsigned int)(stack.sp - stack.bp) >= stack.size) {      \
+      stack.size <<= 1;                                           \
+      stack.bp = (typeof(stack.bp))realloc(                       \
+          stack.bp, stack.size * sizeof(typeof(*stack.bp)));      \
+      QRPC_ABORT(stack.bp == NULL, "memory reallocation failed"); \
+      stack.sp = stack.bp + (stack.size >> 1);                    \
+    }                                                             \
   } while (0)
 
 #define STACK_RESET(stack) (stack.sp = stack.bp)
 
-#define STACK_RELEASE(stack) \
-  do                         \
-  {                          \
-    if (stack.bp != NULL)    \
-      free(stack.bp);        \
-    stack.bp = NULL;         \
+#define STACK_RELEASE(stack)              \
+  do {                                    \
+    if (stack.bp != NULL) free(stack.bp); \
+    stack.bp = NULL;                      \
   } while (0)
 
-STACK_DECLARE (VarId);
-STACK_DECLARE (StepId);
-STACK_DECLARE (Lit);
+STACK_DECLARE(VarId);
+STACK_DECLARE(StepId);
+STACK_DECLARE(Lit);
 
 /* ------------------------------------------------------------------------ */
 
-typedef enum
-{
-  QTYPE_UNDEF,
-  QTYPE_EXISTS,
-  QTYPE_FORALL
-} QType;
+typedef enum { QTYPE_UNDEF, QTYPE_EXISTS, QTYPE_FORALL } QType;
 
-typedef enum
-{
-  QRPTYPE_UNDEF,
-  QRPTYPE_SAT,
-  QRPTYPE_UNSAT
-} QRPType;
+typedef enum { QRPTYPE_UNDEF, QRPTYPE_SAT, QRPTYPE_UNSAT } QRPType;
 
-typedef struct
-{
-  VarId id;               /* internal index */
-  VarId idx;              /* original index as given by input */
+typedef struct {
+  VarId id;  /* internal index */
+  VarId idx; /* original index as given by input */
   QType type;
-  int s_level;            /* scope level */
+  int s_level; /* scope level */
   int num_pos_occs;
   int num_neg_occs;
   ClauseId *pos_occs;
   ClauseId *neg_occs;
 } Var;
 
-typedef struct
-{
+typedef struct {
   ClauseId id;
   int num_lits;
   int s_level;
   char *lits;
-  byte_t is_sat:1;
-  byte_t is_taut:1;
+  byte_t is_sat : 1;
+  byte_t is_taut : 1;
 } Clause;
 
-typedef struct
-{
-  StepId id;                  /* internal index */
-  StepId idx;                 /* original index as given by input */
-  byte_t visited:1; 
-  byte_t is_initial:1;        /* either orig. clause or initial cube */
+typedef struct {
+  StepId id;  /* internal index */
+  StepId idx; /* original index as given by input */
+  byte_t visited : 1;
+  byte_t is_initial : 1; /* either orig. clause or initial cube */
   int num_lits;
   int num_ants;
-  int s_level_sat;                /* scope level of innermost a var */
-  int s_level_unsat;              /* scope level of innermost e var */
+  int s_level_sat;   /* scope level of innermost a var */
+  int s_level_unsat; /* scope level of innermost e var */
   char *lits;
   StepId ants[2];
 } Step;
 
-typedef struct
-{
+typedef struct {
   byte_t verbosity;
-  byte_t is_bqrp:1;
-  byte_t print_proof:1;
-  byte_t print_proof_only:1;
-  byte_t print_statistics:1;
-  byte_t check_icubes:1;
+  byte_t is_bqrp : 1;
+  byte_t print_proof : 1;
+  byte_t print_proof_only : 1;
+  byte_t print_statistics : 1;
+  byte_t check_icubes : 1;
 } QRPCOptions;
 
 /* ------------------------------------------------------------------------ */
 
-#define TIMER_CPU(time) \
-  time = get_cpu_time () - time; 
+#define TIMER_CPU(time) time = get_cpu_time() - time;
 
-#define TIMER_WC(time) \
-  time = get_wc_time () - time; 
+#define TIMER_WC(time) time = get_wc_time() - time;
 
-#define STATS(msg, ...) \
-  fprintf (stderr, msg, ## __VA_ARGS__);
+#define STATS(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__);
 
-#define STATS_HR                                            \
-  do                                                        \
-  {                                                         \
-    fprintf (stderr, "----------------------------------"); \
-    fprintf (stderr, "----------------------------------"); \
-    fprintf (stderr, "\n");                                 \
+#define STATS_HR                                           \
+  do {                                                     \
+    fprintf(stderr, "----------------------------------"); \
+    fprintf(stderr, "----------------------------------"); \
+    fprintf(stderr, "\n");                                 \
   } while (0)
 
 #define STATS_MEM(factor, unit) \
-  do                            \
-  {                             \
-    if (size > mib)             \
-    {                           \
+  do {                          \
+    if (size > mib) {           \
       factor = mib;             \
       unit = smib;              \
-    }                           \
-    else if (size > kib)        \
-    {                           \
+    } else if (size > kib) {    \
       factor = kib;             \
       unit = skib;              \
-    }                           \
-    else                        \
-    {                           \
+    } else {                    \
       factor = 1;               \
       unit = sb;                \
     }                           \
   } while (0)
 
-typedef struct
-{
+typedef struct {
   unsigned int num_vars;
   unsigned int num_free_vars;
   unsigned int num_steps_total;
   unsigned int num_steps_initial;
-  unsigned int num_steps_initial_full;  /* full assignment */
+  unsigned int num_steps_initial_full; /* full assignment */
   unsigned int num_steps_red;
   unsigned int num_steps_res;
   unsigned long long num_literals;
@@ -264,16 +236,16 @@ typedef struct
   unsigned int num_steps_res_core;
   unsigned int num_step_ref_total;
 
-  double time_cpu_total;       /* cpu time (kernel and user mode) */
-  double time_cpu_pqrp;        /* parse qrp */
-  double time_cpu_pqdimacs;    /* parse qdimcas */
-  double time_cpu_cqrp;        /* check qrp */
-  double time_cpu_cicubes;     /* check initial cubes */
-  double time_wc_total;        /* wall clock time */
-  double time_wc_pqrp;         /* parse qrp */
-  double time_wc_pqdimacs;     /* parse qdimcas */
-  double time_wc_cqrp;         /* check qrp */
-  double time_wc_cicubes;      /* check initial cubes */
+  double time_cpu_total;    /* cpu time (kernel and user mode) */
+  double time_cpu_pqrp;     /* parse qrp */
+  double time_cpu_pqdimacs; /* parse qdimcas */
+  double time_cpu_cqrp;     /* check qrp */
+  double time_cpu_cicubes;  /* check initial cubes */
+  double time_wc_total;     /* wall clock time */
+  double time_wc_pqrp;      /* parse qrp */
+  double time_wc_pqdimacs;  /* parse qdimcas */
+  double time_wc_cqrp;      /* check qrp */
+  double time_wc_cicubes;   /* check initial cubes */
 
   unsigned int size_vars;
   unsigned int size_vidx2id;
@@ -299,77 +271,65 @@ typedef struct
   unsigned int num_realloc_stack_res_lits;
 } QRPCStatistics;
 
-
 /* -------------------------------- Parser -------------------------------- */
 
-#define QDIMACS    0
-#define QRP_ASCII  1
+#define QDIMACS 0
+#define QRP_ASCII 1
 #define QRP_BINARY 2
 
-#define QRP_COMMENT      '#'
-#define QRP_PREAMBLE     'p'
-#define QRP_EOL          '0'
-#define QRP_RESULT       'r'
-#define QRP_FORALL       'a'
-#define QRP_EXISTS       'e'
+#define QRP_COMMENT '#'
+#define QRP_PREAMBLE 'p'
+#define QRP_EOL '0'
+#define QRP_RESULT 'r'
+#define QRP_FORALL 'a'
+#define QRP_EXISTS 'e'
 
-#define BQRP_EOL          0
+#define BQRP_EOL 0
 
-#define QDIMACS_COMMENT  'c'
+#define QDIMACS_COMMENT 'c'
 #define QDIMACS_PREAMBLE 'p'
-#define QDIMACS_EOL      '0'
-#define QDIMACS_FORALL   'a'
-#define QDIMACS_EXISTS   'e'
+#define QDIMACS_EOL '0'
+#define QDIMACS_FORALL 'a'
+#define QDIMACS_EXISTS 'e'
 
 #define MINUS '-'
 #define EOL 0
 
-#define READ_CHAR           \
-  do                        \
-  {                         \
-    if (p.pos == p.in_size) \
-    {                       \
-      ch = EOF;             \
-      break;                \
-    }                       \
-    ch = p.in[p.pos++];     \
-    p.col += 1;             \
+#define READ_CHAR             \
+  do {                        \
+    if (p.pos == p.in_size) { \
+      ch = EOF;               \
+      break;                  \
+    }                         \
+    ch = p.in[p.pos++];       \
+    p.col += 1;               \
   } while (0);
 
-  
 #define SKIP_SPACE_WHILE \
-  while (isspace (ch))   \
-  {                      \
+  while (isspace(ch)) {  \
     READ_CHAR;           \
-    if (ch == '\n')      \
-    {                    \
+    if (ch == '\n') {    \
       p.line += 1;       \
       p.col = 0;         \
     }                    \
   }
-    
+
 #define SKIP_SPACE_DO_WHILE \
-  do                        \
-  {                         \
+  do {                      \
     READ_CHAR;              \
-    if (ch == '\n')        \
-    {                       \
+    if (ch == '\n') {       \
       p.line += 1;          \
       p.col = 0;            \
     }                       \
-  } while (isspace (ch))
+  } while (isspace(ch))
 
-#define SKIP_SPACE_WHILE_IF(cond)     \
-  if (cond)                           \
-    SKIP_SPACE_WHILE;
+#define SKIP_SPACE_WHILE_IF(cond) \
+  if (cond) SKIP_SPACE_WHILE;
 
-#define SKIP_SPACE_DO_WHILE_IF(cond)  \
-  if (cond)                           \
-    SKIP_SPACE_DO_WHILE;
+#define SKIP_SPACE_DO_WHILE_IF(cond) \
+  if (cond) SKIP_SPACE_DO_WHILE;
 
-
-typedef struct
-{
+typedef struct {
   byte_t is_qrp;
   char *filename;
   char *in;
@@ -377,8 +337,8 @@ typedef struct
   long pos;
   int line;
   int col;
-  int (*read_number) (void);
-  int (*read_literal) (void);
+  int (*read_number)(void);
+  int (*read_literal)(void);
 } QRPCParser;
 
 /* ---------------------------- end Parser -------------------------------- */
