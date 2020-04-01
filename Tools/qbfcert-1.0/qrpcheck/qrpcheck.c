@@ -94,7 +94,7 @@ static byte_t *mark_occs = NULL;
 static QRPCOptions options = {.verbosity = 0,
                               .is_bqrp = 0,
                               .print_proof = 1,
-                              .print_proof_only = 1,
+                              .print_proof_only = 0,
                               .print_statistics = 0,
                               .check_icubes = 0};
 
@@ -157,11 +157,6 @@ static void parse_qrp(char *, char *, long);
 static void parse_qdimacs(char *, char *, long);
 #endif
 static void cleanup(void);
-
-struct Node {
-  int data;
-  struct Node *next;
-} Node;
 
 int main(int argc, char **argv) {
   DIR *dir = NULL;
@@ -783,10 +778,6 @@ static int check_initial_cubes(void) {
   unsigned int i;
   StepId *tmp;
   Lit lit;
-  struct Node *head = NULL;
-  // struct Node* second = NULL;
-  head = (struct Node *)malloc(sizeof(struct Node));
-  // second = (struct Node*)malloc(sizeof(struct Node));
 
   read_literal_qrp = qrp_format == QRP_BINARY ? &read_bin_lit : &read_ascii_lit;
   read_literal_qdimacs = &read_ascii_lit;
@@ -814,6 +805,9 @@ static int check_initial_cubes(void) {
     if (options.verbosity > 1) fprintf(stderr, " initialize PicoSAT\n");
     picosat_init();
 
+    int witness_picosat[max_vidx + 1];
+    memset(witness_picosat, 0, max_vidx + 1);
+
     for (i = 0; i < num_clauses; i++) {
       if (clauses[i].is_sat) {
         if (!clauses[i].is_taut) clauses[i].is_sat = 0; /* reset */
@@ -835,9 +829,11 @@ static int check_initial_cubes(void) {
           continue;
         }
         if (options.verbosity > 1) fprintf(stderr, " %d", lit);
-        head->data = lit;
-        head->next = NULL;
+
         picosat_add(lit);
+
+        // Update the bit of the corresponding to 1.
+        witness_picosat[abs(lit)] = 1;
       }
       if (options.verbosity > 1) fprintf(stderr, " )\n");
 
@@ -856,20 +852,19 @@ static int check_initial_cubes(void) {
     // Store the result of the PICOSAT call.
     int result_picosat_call = picosat_sat(-1);
     int sat_assgmt = 0;
-    int lit_value = 0;
     if (result_picosat_call == PICOSAT_UNSATISFIABLE) {
       if (options.verbosity >= 1) fprintf(stderr, "FAILED (unsat)\n");
       return ERROR;
     } else if (result_picosat_call == PICOSAT_SATISFIABLE) {
-      struct Node *cursor = head;
-      while (cursor != NULL) {
-        sat_assgmt = picosat_deref(cursor->data);
-        lit_value = cursor->data;
-        sat_assgmt > 0
-            ? fprintf(stderr, "%d %d %d\n", tmp[0], lit_value, 0)
-            : fprintf(stderr, "%d %d %d\n", tmp[0], lit_value * -1, 0);
-        cursor = cursor->next;
+      fprintf(stderr, "%d ", tmp[0]);
+      for (StepId lit_idx = 1; lit_idx <= max_sidx; ++lit_idx) {
+        if (witness_picosat[lit_idx] == 1) {
+          sat_assgmt = picosat_deref(abs(lit));
+          sat_assgmt > 0 ? fprintf(stderr, "%d ", lit_idx)
+                         : fprintf(stderr, "%d ", lit_idx * -1);
+        }
       }
+      fprintf(stderr, "%d\n", 0);
     }
 
     if (options.verbosity >= 1) fprintf(stderr, "OK (non-covering set)\n");
@@ -916,10 +911,12 @@ static void print_proof(void) {
       print_num = &print_ascii_num;
   }
 
-  if (print_num == &print_bin_num)
+  if (print_num == &print_bin_num) {
     printf("p bqrp %u %u%c", max_vidx, max_sidx, BQRP_EOL);
-  else
+  } else {
+    // TODO: Check the use of the max_sidx id. Not sure it is correct.
     printf("p qrp %u %u%c", max_vidx, max_sidx, '\n');
+  }
 
   if (num_scopes == 1) goto PRINT_NONFREE_VARS;
 
