@@ -288,6 +288,7 @@ int main(int argc, char **argv) {
     TIMER_WC(statistics.time_wc_cqrp);
   }
 
+  // Original Print_Proof
   if (options.print_proof) print_proof();
 
 #ifndef NPICOSAT
