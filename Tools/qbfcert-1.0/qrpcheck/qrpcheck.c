@@ -916,6 +916,10 @@ static void print_proof(void) {
       print_num = &print_ascii_num;
   }
 
+  /* result: Shifted to print the result upfront! */
+  if (print_num == &print_bin_num) print_num(0, 0);
+  printf("r %s\n", qrp_type == QRPTYPE_SAT ? "sat" : "unsat");
+
   if (print_num == &print_bin_num) {
     printf("p bqrp %u %u%c", max_vidx, max_sidx, BQRP_EOL);
   } else {
@@ -1006,8 +1010,8 @@ PRINT_NONFREE_VARS:
   }
 
   /* result */
-  if (print_num == &print_bin_num) print_num(0, 0);
-  printf("r %s\n", qrp_type == QRPTYPE_SAT ? "sat" : "unsat");
+  // if (print_num == &print_bin_num) print_num(0, 0);
+  // printf("r %s\n", qrp_type == QRPTYPE_SAT ? "sat" : "unsat");
 }
 
 static void print_statistics(void) {
