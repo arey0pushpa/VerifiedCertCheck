@@ -327,7 +327,7 @@ int main(int argc, char **argv) {
   }
 
   cleanup();
-  fprintf(stderr, "OK\n");
+  // fprintf(stderr, "OK\n");
   exit(EXIT_SUCCESS);
 }
 
