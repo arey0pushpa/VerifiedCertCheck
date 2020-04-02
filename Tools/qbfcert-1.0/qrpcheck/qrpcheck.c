@@ -862,7 +862,7 @@ static int check_initial_cubes(void) {
       if (options.verbosity >= 1) fprintf(stderr, "FAILED (unsat)\n");
       return ERROR;
     } else if (result_picosat_call == PICOSAT_SATISFIABLE) {
-      fprintf(stderr, "%d ", tmp[0]);
+      fprintf(stderr, "%c %d ", 'w', tmp[0]);
       for (StepId lit_idx = 1; lit_idx <= max_sidx; ++lit_idx) {
         if (witness_picosat[lit_idx] == 1) {
           sat_assgmt = picosat_deref(abs(lit));
