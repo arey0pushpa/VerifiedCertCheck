@@ -21,7 +21,7 @@
 /* ------- TODOS Ankit ----------------------------------------------
  * 1. Print the witness of the initial cube on stdout not on stderr.
  * 2. Test the inital cube witness on the Eval-2008 instances.
- * ----------------------------------------------------------------------
+ * ----------------------------------------------------------------------*/
 
 #include "qrpcheck.h"
 #include <assert.h>
@@ -68,8 +68,8 @@ static void (*read_literal_qdimacs)(char *) = NULL;
 static void (*print_num)(int, int) = NULL;
 
 QRPType qrp_type = QRPTYPE_UNDEF; /* sat or unsat? */
-QType ptype = QTYPE_UNDEF; /* pivot var type */
-QType rtype = QTYPE_UNDEF; /* forall/existential reduction? */
+QType ptype = QTYPE_UNDEF;        /* pivot var type */
+QType rtype = QTYPE_UNDEF;        /* forall/existential reduction? */
 
 static int num_scopes;
 
@@ -782,7 +782,7 @@ static int check_initial_cubes(void) {
   int j, k, cnt_deleted;
   unsigned int i;
   StepId *tmp;
-  Lit lit;
+  Lit lit = 0;
 
   read_literal_qrp = qrp_format == QRP_BINARY ? &read_bin_lit : &read_ascii_lit;
   read_literal_qdimacs = &read_ascii_lit;
