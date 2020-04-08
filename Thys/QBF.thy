@@ -190,10 +190,10 @@ begin
   lemma is_indep1_disjI: "\<lbrakk> is_indep1 x \<phi>\<^sub>1; is_indep1 x \<phi>\<^sub>2 \<rbrakk> \<Longrightarrow> is_indep1 x (\<phi>\<^sub>1 \<^bold>\<or> \<phi>\<^sub>2)"
     by (simp add: is_indep1_def sOr_def)
     
-  lemma is_indep_Forall_same[simp]: "is_indep1 x (\<^bold>\<forall>x. \<phi>)" 
+  lemma is_indep1_Forall_same[simp]: "is_indep1 x (\<^bold>\<forall>x. \<phi>)" 
     unfolding is_indep1_elim_all_conv by simp
     
-  lemma is_indep_Exists_same[simp]: "is_indep1 x (\<^bold>\<exists>x. \<phi>)"
+  lemma is_indep1_Exists_same[simp]: "is_indep1 x (\<^bold>\<exists>x. \<phi>)"
     unfolding is_indep1_elim_all_conv by simp
     
                 
@@ -223,6 +223,16 @@ begin
     "is_indep1 x \<phi>\<^sub>1 \<Longrightarrow> (\<^bold>\<exists>x. \<phi>\<^sub>1 \<^bold>\<and> \<phi>\<^sub>2) = (\<phi>\<^sub>1 \<^bold>\<and> (\<^bold>\<exists>x. \<phi>\<^sub>2))"
     "is_indep1 x \<phi>\<^sub>1 \<Longrightarrow> (\<^bold>\<exists>x. \<phi>\<^sub>2 \<^bold>\<and> \<phi>\<^sub>1) = ((\<^bold>\<exists>x. \<phi>\<^sub>2) \<^bold>\<and> \<phi>\<^sub>1)"
     by (auto simp: sExists_def fun_eq_iff sAnd_def)
+    
+  lemma is_indep_ForallI: "is_indep X \<phi> \<Longrightarrow> is_indep X (\<^bold>\<forall>y. \<phi>)"
+    unfolding is_indep_def by (blast intro: is_indep1_ForallI)
+    
+  lemma is_indep_ExistsI: "is_indep X \<phi> \<Longrightarrow> is_indep X (\<^bold>\<exists>y. \<phi>)"
+    unfolding is_indep_def by (blast intro: is_indep1_ExistsI)
+
+  lemma is_indep_antimono: "\<lbrakk>is_indep Y \<phi>; X\<subseteq>Y \<rbrakk> \<Longrightarrow> is_indep X \<phi>"  
+    unfolding is_indep_def by blast
+        
     
 
   (* Arbitrary Quantifiers *)  
@@ -272,7 +282,83 @@ begin
     by (induction qs; auto simp: quant_indep1_pull)+
     
     
-  lemma forall_reduction: 
+  lemma is_indep1_quantsI: "is_indep1 x \<phi> \<Longrightarrow> is_indep1 x (quants qs \<phi>)"  
+    apply (induction qs  arbitrary: \<phi> rule: quants_induct)
+    apply (auto intro: is_indep1_ForallI is_indep1_ExistsI)
+    done
+
+  lemma quants_filter_indep': 
+    assumes "\<And>q. \<not>P q \<Longrightarrow> is_indep1 (qvar q) \<phi>"
+    shows "quants (filter P qs) \<phi> = quants qs \<phi>"  
+    using assms
+    apply (induction qs rule: quants_induct)
+    apply (fastforce simp: is_indep1_quantsI)+
+    done
+        
+  lemma quants_filter_indep: "quants (filter (\<lambda>q. \<not>is_indep1 (qvar q) \<phi>) qs) \<phi> = quants qs \<phi>"  
+    apply (rule quants_filter_indep')
+    by simp
+
+  lemma split_conj_indep_aux:  
+    assumes I: "is_indep ({qvar q | q. q\<in>set qs\<^sub>2 \<and> is_Exists q}) C"  
+    shows "quants qs\<^sub>2 (C \<^bold>\<and> \<phi>) = quants qs\<^sub>2 C \<^bold>\<and> quants qs\<^sub>2 \<phi>"
+    using assms
+  proof (induction qs\<^sub>2 arbitrary: C \<phi> rule: rev_induct)
+    case Nil
+    then show ?case by simp
+  next
+    case (snoc q qs)
+    then show ?case 
+      apply (cases q)
+      apply (simp_all add: forall_distrib_and)
+      (* TODO: Takes long. Guide the proof a little more! *)
+      apply (smt is_indep1_ForallI is_indep_def mem_Collect_eq)
+      by (smt is_indep1_exists is_indep_def is_indep_exists_conj(1) mem_Collect_eq quantifier.discI(2) quantifier.sel(2))
+    
+  qed
+        
+  lemma forall_reduction:  
+    assumes I: "is_indep ({qvar q | q. q\<in>set qs\<^sub>2 \<and> is_Exists q}) C" (is "is_indep ?EXV C") 
+    shows "quants qs\<^sub>1(\<^bold>\<forall>x. quants qs\<^sub>2 (C \<^bold>\<and> \<phi> \<^bold>\<and> (\<^bold>\<forall>x. C))) 
+         = quants qs\<^sub>1(\<^bold>\<forall>x. quants qs\<^sub>2 (C \<^bold>\<and> \<phi>))" (is "?lhs=?rhs")
+         
+  proof -
+    define qs\<^sub>2' where "qs\<^sub>2' = filter (\<lambda>q. \<not>is_indep1 (qvar q) C) qs\<^sub>2"
+
+    from I have "\<forall>q\<in>set qs\<^sub>2'. is_Forall q"
+      unfolding qs\<^sub>2'_def is_indep_def 
+      apply (clarsimp) 
+      subgoal for q by (cases q) (auto 0 3)
+      done
+    hence QS2'_COMM: "(\<^bold>\<forall>x. quants qs\<^sub>2' \<phi>) = (quants qs\<^sub>2' (\<^bold>\<forall>x. \<phi>))" for \<phi> 
+      by (induction qs\<^sub>2' rule: quants_induct) auto
+      
+    
+    from split_conj_indep_aux[OF I] have SPLITR: "quants qs\<^sub>2 (C \<^bold>\<and> \<phi>) = quants qs\<^sub>2 C \<^bold>\<and> quants qs\<^sub>2 \<phi>" .
+    
+    from I have I': "is_indep ?EXV (C \<^bold>\<and> (\<^bold>\<forall>x. C))"  
+      by (simp add: is_indep1_ForallI is_indep1_conjI is_indep_def)
+    
+    from split_conj_indep_aux[OF I'] have SPLITL: "quants qs\<^sub>2 (C \<^bold>\<and> \<phi> \<^bold>\<and> (\<^bold>\<forall>x. C)) = quants qs\<^sub>2 (C \<^bold>\<and> (\<^bold>\<forall>x. C)) \<^bold>\<and> quants qs\<^sub>2 \<phi>" 
+      by force
+    
+      
+    have REDR: "quants qs\<^sub>2 C = quants qs\<^sub>2' C" unfolding qs\<^sub>2'_def by (simp add: quants_filter_indep)
+    have REDL: "quants qs\<^sub>2 (C \<^bold>\<and> (\<^bold>\<forall>x. C)) = quants qs\<^sub>2' (C \<^bold>\<and> (\<^bold>\<forall>x. C))" unfolding qs\<^sub>2'_def 
+      apply (rule quants_filter_indep'[symmetric])
+      by (simp add: is_indep1_ForallI is_indep1_conjI)
+
+    have EQ: "(\<^bold>\<forall>x. quants qs\<^sub>2' (C \<^bold>\<and> (\<^bold>\<forall>x. C))) = (\<^bold>\<forall>x. quants qs\<^sub>2' C)"
+      by (simp add: QS2'_COMM forall_distrib_and)
+          
+    show ?thesis     
+      by (simp add: SPLITL SPLITR REDL REDR EQ forall_distrib_and)
+      
+  qed    
+    
+    
+  (* TODO: This might be too restrictive. We only need that the \<exists>-variables are independent? *)  
+  lemma forall_reduction_old: 
     assumes I: "is_indep (qvar`set qs\<^sub>2) C"  
     shows "quants qs\<^sub>1(\<^bold>\<forall>x. quants qs\<^sub>2 (C \<^bold>\<and> \<phi> \<^bold>\<and> (\<^bold>\<forall>x. C))) 
          = quants qs\<^sub>1(\<^bold>\<forall>x. quants qs\<^sub>2 (C \<^bold>\<and> \<phi>))"
@@ -285,7 +371,68 @@ begin
         
   qed
 
-  lemma exists_reduction: 
+
+  
+  lemma split_disj_indep_aux:  
+    assumes I: "is_indep ({qvar q | q. q\<in>set qs\<^sub>2 \<and> is_Forall q}) C"  
+    shows "quants qs\<^sub>2 (C \<^bold>\<or> \<phi>) = quants qs\<^sub>2 C \<^bold>\<or> quants qs\<^sub>2 \<phi>"
+    using assms
+  proof (induction qs\<^sub>2 arbitrary: C \<phi> rule: rev_induct)
+    case Nil
+    then show ?case by simp
+  next
+    case (snoc q qs)
+    then show ?case 
+      apply (cases q)
+      apply (simp_all add: forall_distrib_and)
+      (* TODO: Takes long. Guide the proof a little more! *)
+      subgoal by (smt is_Forall_def is_indep1_forall is_indep_def is_indep_forall_disj(1) mem_Collect_eq quantifier.sel(1))
+      subgoal by (smt exists_distrib_or is_indep_ExistsI is_indep_def mem_Collect_eq) 
+      done
+    
+  qed
+        
+  lemma exists_reduction:  
+    assumes I: "is_indep ({qvar q | q. q\<in>set qs\<^sub>2 \<and> is_Forall q}) C" (is "is_indep ?ALLV C") 
+    shows "quants qs\<^sub>1(\<^bold>\<exists>x. quants qs\<^sub>2 (C \<^bold>\<or> \<phi> \<^bold>\<or> (\<^bold>\<exists>x. C))) 
+         = quants qs\<^sub>1(\<^bold>\<exists>x. quants qs\<^sub>2 (C \<^bold>\<or> \<phi>))" (is "?lhs=?rhs")
+         
+  proof -
+    define qs\<^sub>2' where "qs\<^sub>2' = filter (\<lambda>q. \<not>is_indep1 (qvar q) C) qs\<^sub>2"
+
+    from I have "\<forall>q\<in>set qs\<^sub>2'. is_Exists q"
+      unfolding qs\<^sub>2'_def is_indep_def 
+      apply (clarsimp) 
+      subgoal for q by (cases q) (auto 0 3)
+      done
+    hence QS2'_COMM: "(\<^bold>\<exists>x. quants qs\<^sub>2' \<phi>) = (quants qs\<^sub>2' (\<^bold>\<exists>x. \<phi>))" for \<phi> 
+      by (induction qs\<^sub>2' rule: quants_induct) auto
+      
+    
+    from split_disj_indep_aux[OF I] have SPLITR: "quants qs\<^sub>2 (C \<^bold>\<or> \<phi>) = quants qs\<^sub>2 C \<^bold>\<or> quants qs\<^sub>2 \<phi>" .
+    
+    from I have I': "is_indep ?ALLV (C \<^bold>\<or> (\<^bold>\<exists>x. C))"  
+      by (simp add: is_indep1_ExistsI is_indep1_disjI is_indep_def)
+    
+    from split_disj_indep_aux[OF I'] have SPLITL: "quants qs\<^sub>2 (C \<^bold>\<or> \<phi> \<^bold>\<or> (\<^bold>\<exists>x. C)) = quants qs\<^sub>2 (C \<^bold>\<or> (\<^bold>\<exists>x. C)) \<^bold>\<or> quants qs\<^sub>2 \<phi>" 
+      by force
+    
+      
+    have REDR: "quants qs\<^sub>2 C = quants qs\<^sub>2' C" unfolding qs\<^sub>2'_def by (simp add: quants_filter_indep)
+    have REDL: "quants qs\<^sub>2 (C \<^bold>\<or> (\<^bold>\<exists>x. C)) = quants qs\<^sub>2' (C \<^bold>\<or> (\<^bold>\<exists>x. C))" unfolding qs\<^sub>2'_def 
+      apply (rule quants_filter_indep'[symmetric])
+      by (simp add: is_indep1_ExistsI is_indep1_disjI)
+
+    have EQ: "(\<^bold>\<exists>x. quants qs\<^sub>2' (C \<^bold>\<or> (\<^bold>\<exists>x. C))) = (\<^bold>\<exists>x. quants qs\<^sub>2' C)"
+      by (simp add: QS2'_COMM exists_distrib_or)
+          
+    show ?thesis     
+      by (simp add: SPLITL SPLITR REDL REDR EQ exists_distrib_or)
+      
+  qed    
+    
+  
+  lemma exists_reduction_old: 
     assumes I: "is_indep (qvar`set qs\<^sub>2) C"  
     shows "quants qs\<^sub>1(\<^bold>\<exists>x. quants qs\<^sub>2 ((\<^bold>\<exists>x. C) \<^bold>\<or> C \<^bold>\<or> \<phi>))
          = quants qs\<^sub>1(\<^bold>\<exists>x. quants qs\<^sub>2 (C \<^bold>\<or> \<phi>))"
@@ -743,7 +890,7 @@ begin
   definition "reduce_all x c \<equiv> do {
     assert (is_all_var x);
     let i = index_of_var x;
-    assert (\<forall>y\<in>vars_of_clause c. index_of_var y \<le> i);
+    assert (\<forall>y\<in>vars_of_clause c. is_ex_var y \<longrightarrow> index_of_var y \<le> i);
     let c = filter_clause (\<lambda>y. y\<noteq>x) c;
     Some c
   }"  
@@ -754,9 +901,7 @@ begin
   
   lemma filter_clause_ss: "filter_clause P C \<subseteq> C"  
     by (auto simp: filter_clause_def)
-    
-  
-  
+   
   lemma reduce_all_correct:
     assumes "reduce_all x c = Some c'"  
     assumes "taut_free_clause c" "c \<in> F" 
@@ -765,19 +910,29 @@ begin
     apply (clarsimp split: Option.bind_splits simp: filter_forall_clause_cnf elim!: Set.set_insert)
   proof (intro conjI)
     assume "is_all_var x"
-    then obtain qs\<^sub>1 qs\<^sub>2 where [simp]: "qs = qs\<^sub>1 @ Forall x # qs\<^sub>2"
+    then obtain qs\<^sub>1 qs\<^sub>2 where QSF: "qs = qs\<^sub>1 @ Forall x # qs\<^sub>2"
       unfolding is_all_var_def by (auto simp: in_set_conv_decomp)
   
-    assume "\<forall>y\<in>vars_of_clause c. index_of_var y \<le> index_of_var x"  
-    then have V: "vars_of_clause c \<inter> qvar ` set qs\<^sub>2 = {}"  
-      unfolding index_of_var_def using no_dup_quant
-      by (auto 0 3 simp: in_set_conv_decomp index_append)
+    let ?EXV = "{qvar q |q. q \<in> set qs\<^sub>2 \<and> is_Exists q}"
       
+    assume A: "\<forall>y\<in>vars_of_clause c. is_ex_var y \<longrightarrow> index_of_var y \<le> index_of_var x"  
+    have V: "vars_of_clause c \<inter> ?EXV = {}" 
+    proof (safe;simp)
+      fix q :: "'a quantifier"
+      assume "is_Exists q" then obtain y where [simp]: "q = Exists y" by (cases q) simp
+      assume QS2: "q\<in>set qs\<^sub>2" with no_dup_quant have [simp]: "is_ex_var y"
+        unfolding is_ex_var_def by (simp add: QSF)
+      assume "qvar q \<in> vars_of_clause c" 
+      with A have "index_of_var y \<le> index_of_var x" by auto
+      with QS2 show False
+        unfolding index_of_var_def using no_dup_quant
+        by (auto simp: in_set_conv_decomp index_append QSF)
+    qed  
       
     fix B  
     show "quants qs (sem_clause_cnf c \<^bold>\<and> sem_cnf B \<^bold>\<and> (\<^bold>\<forall>x. sem_clause_cnf c)) =
              quants qs (sem_clause_cnf c \<^bold>\<and> sem_cnf B)"  
-      apply simp
+      apply (simp add: QSF)
       apply (rule forall_reduction)
       apply (rule sem_clause_cnf_indepI)
       by fact
@@ -786,7 +941,7 @@ begin
     then show "taut_free_clause (filter_clause (\<lambda>y. y \<noteq> x) c)"
       by (rule taut_free_clause_mono[OF filter_clause_ss])
       
-  qed      
+  qed
       
   definition "reduction_step_cnf idN x id1 cmap \<equiv> do {
     c \<leftarrow> cmap id1;
@@ -855,16 +1010,11 @@ begin
   definition "reduce_ex x c \<equiv> do {
     assert (is_ex_var x);
     let i = index_of_var x;
-    assert (\<forall>y\<in>vars_of_clause c. index_of_var y \<le> i);
+    assert (\<forall>y\<in>vars_of_clause c. is_all_var y \<longrightarrow> index_of_var y \<le> i);
     let c = filter_clause (\<lambda>y. y\<noteq>x) c;
     Some c
   }"  
   
-  
-  thm filter_forall_clause_cnf
-  thm filter_exists_clause_dnf
-  
-  thm exists_reduction
   
   lemma reduce_ex_correct:
     assumes "reduce_ex x c = Some c'"  
@@ -874,21 +1024,34 @@ begin
     apply (clarsimp split: Option.bind_splits simp: filter_exists_clause_dnf elim!: Set.set_insert)
   proof (intro conjI)
     assume "is_ex_var x"
-    then obtain qs\<^sub>1 qs\<^sub>2 where [simp]: "qs = qs\<^sub>1 @ Exists x # qs\<^sub>2"
+    then obtain qs\<^sub>1 qs\<^sub>2 where QSF: "qs = qs\<^sub>1 @ Exists x # qs\<^sub>2"
       unfolding is_ex_var_def by (auto simp: in_set_conv_decomp)
+      
+    let ?ALLV = "{qvar q |q. q \<in> set qs\<^sub>2 \<and> is_Forall q}"
+        
   
-    assume "\<forall>y\<in>vars_of_clause c. index_of_var y \<le> index_of_var x"  
-    then have V: "vars_of_clause c \<inter> qvar ` set qs\<^sub>2 = {}"  
-      unfolding index_of_var_def using no_dup_quant
-      by (auto 0 3 simp: in_set_conv_decomp index_append)
-    hence [simp]: "is_indep (qvar ` set qs\<^sub>2) (sem_clause_dnf c)"
-      by (simp add: sem_clause_dnf_indepI) 
+    assume A: "\<forall>y\<in>vars_of_clause c. is_all_var y \<longrightarrow> index_of_var y \<le> index_of_var x"  
+    
+    have V: "vars_of_clause c \<inter> ?ALLV = {}" 
+    proof (safe;simp)
+      fix q :: "'a quantifier"
+      assume "is_Forall q" then obtain y where [simp]: "q = Forall y" by (cases q) auto
+      assume QS2: "q\<in>set qs\<^sub>2" with no_dup_quant have [simp]: "is_all_var y"
+        unfolding is_all_var_def by (simp add: QSF)
+      assume "qvar q \<in> vars_of_clause c" 
+      with A have "index_of_var y \<le> index_of_var x" by auto
+      with QS2 show False
+        unfolding index_of_var_def using no_dup_quant
+        by (auto simp: in_set_conv_decomp index_append QSF)
+    qed  
+    
       
     fix B  
     show "quants qs (\<phi> \<^bold>\<or> sem_clause_dnf c \<^bold>\<or> sem_dnf B \<^bold>\<or> (\<^bold>\<exists>x. sem_clause_dnf c)) =
              quants qs (\<phi> \<^bold>\<or> sem_clause_dnf c \<^bold>\<or> sem_dnf B)"
       using exists_reduction[of qs\<^sub>2 "sem_clause_dnf c" qs\<^sub>1 x "\<phi> \<^bold>\<or> sem_dnf B"]
-      by simp
+            sem_clause_dnf_indepI[OF V]
+      by (simp add: QSF)
       
     assume "taut_free_clause c"  
     then show "taut_free_clause (filter_clause (\<lambda>y. y \<noteq> x) c)"
