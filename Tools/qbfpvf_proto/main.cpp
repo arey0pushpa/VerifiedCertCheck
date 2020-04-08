@@ -100,6 +100,7 @@ public:
 
   string str() const {return std::to_string(l);}
 
+  var_t as_int() const {return l;}
 
   bool operator ==(literal lit) const {return l==lit.l;};
   bool operator !=(literal lit) const {return l!=lit.l;};
@@ -155,6 +156,7 @@ public:
   clause_iterator &operator++() {next(); return *this;}
 
   literal const &operator*() const {return cur(); }
+  literal const *operator->() const {return &cur(); }
 
 };
 
@@ -276,6 +278,54 @@ public:
 typedef enum {Q_ALL, Q_EX} quantifier_t;
 typedef enum {CM_SAT,CM_UNSAT} certmode_t;
 
+
+class Valuation {
+private:
+  size_t n = 0;
+  bool *base = NULL;
+  bool *m = NULL;
+
+  Valuation(Valuation const &) = delete;
+  Valuation &operator=(Valuation const &) = delete;
+
+public:
+
+  void init(size_t _n) {
+    assert(!m && _n>0);
+    n=_n;
+    base = new bool[2*n+1];
+    fill(base,base+(2*n+1),false);
+    m = base + n;
+  }
+
+
+  Valuation() {}
+  Valuation(size_t _n) { init(_n); }
+  ~Valuation() { if (base) delete [] base;}
+
+  void set(literal l) {
+    var_t i = l.as_int();
+    assert(m);
+    assert(abs(i)<=n);
+    m[i]=true; m[-i]=false;
+  }
+
+  void reset(literal l) {
+    var_t i = l.as_int();
+    assert(m && abs(i)<=n);
+    m[i]=false; m[-i]=false;
+  }
+
+  bool get(literal l) {
+    var_t i = l.as_int();
+    assert(m && abs(i)<=n);
+    return m[i];
+  }
+
+};
+
+
+
 class QBF_Main {
 private:
   Clauses clauses;
@@ -302,6 +352,9 @@ private:
   unordered_set<clause,Clauses::Clause_Hash_Eq,Clauses::Clause_Hash_Eq> matrix;        // List of all clauses in matrix.
 
   bool seen_empty=false;            // True if empty clause/cube has been added and checked
+
+
+  Valuation val;                    // Valuation used for checking initial cubes
 
 
 public:
@@ -360,6 +413,11 @@ public:
     varpos[v.idx()] = ++ndecl;
   }
 
+  size_t get_pos(variable v) {
+    assert(valid_var(v));
+    return varpos[v.idx()];
+  }
+
   quantifier_t get_quant(variable v) {
     assert(valid_var(v));
     return quants[v.idx()];
@@ -373,10 +431,12 @@ public:
 
   string str(clause c) const {
     string res;
-    for (auto it = clauses.iter(c); it.hasnext(); ++it)
+    for (auto it = clauses.iter(c); it.hasnext(); ++it) {
       res+=it.cur().str();
+      res+=" ";
+    }
 
-    res+=" 0";
+    res+="0";
     return res;
   }
 
@@ -421,7 +481,12 @@ private:
   void check_reduction(clause c, clause_id id1);
   void check_resolution(clause c, clause_id id1, clause_id id2);
 
-
+  bool is_clause_sat(clause c) {
+    for (auto it=clauses.iter(c);it.hasnext();++it) {
+      if (val.get(*it)) return true;
+    }
+    return false;
+  }
 
 };
 
@@ -478,6 +543,10 @@ void QBF_Main::check_proof(std::istream& in) {
 //     }
 //   }
 
+  // Init valuation used for initial cube checking
+  if (mode==CM_SAT) {
+    val.init(n);
+  }
 
   // Skip over quantifiers and comments (we do not even check them for consistency)
   parse_ignore_comments(in);
@@ -554,7 +623,21 @@ void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
 
 void QBF_Main::check_initial(clause c) {
   switch (mode) {
-    case CM_SAT: break; // TODO: Initial cube checking!
+    case CM_SAT:
+
+      // Set clause literals
+      for (auto it=clauses.iter(c);it.hasnext();++it) val.set(*it);
+
+      // Check that every clause of initial matrix is satisfied
+      for (auto it = matrix.begin(); it!=matrix.end();++it) {
+        if (!is_clause_sat(*it)) error("Initial cube does not satisfy matrix clause. cube: " + str(c) + " clause: " +str(*it));
+      }
+
+      // Reset clause literals
+      for (auto it=clauses.iter(c);it.hasnext();++it) val.reset(*it);
+
+
+      break; // TODO: Initial cube checking with additional witnesses!
     case CM_UNSAT:
       if (!is_initial_clause(c)) error("Initial clause not in formula: " + str(c));
 
@@ -562,8 +645,49 @@ void QBF_Main::check_initial(clause c) {
 
   }
 }
-void QBF_Main::check_reduction(clause c, clause_id id1) {}
-void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {}
+
+void QBF_Main::check_reduction(clause c, clause_id id1) {
+  clause c1 = cmap.lookup(id1);
+
+  clause_iterator it = clauses.iter(c);
+  clause_iterator it1 = clauses.iter(c1);
+
+  // Quantifier that can be reduced
+  quantifier_t red_quant = (mode==CM_SAT)?Q_EX:Q_ALL;
+
+
+  size_t min_red = SIZE_MAX; // Minimum variable position that has been reduced
+  size_t max_nr = 0;         // Maximum non-reducible variable position
+
+
+  while (true) {
+    // Reduce all variables in original clause, until we found matching variable in new clause
+    while (*it1 != *it) {
+      if (!it1.hasnext()) error("Literal does not occur in original clause: " + it->str());
+
+      variable v = it1->var();
+      min_red=min(min_red,get_pos(v));
+      if (get_quant(v) != red_quant) error("Attempt to reduce wrong-polarity variable: " + v.str());
+
+      ++it1;
+    }
+
+    if (!it.hasnext()) break;
+
+    if (get_quant(it->var()) != red_quant) max_nr = max (max_nr,get_pos(it->var()));
+
+    ++it; ++it1;
+  }
+
+  if (max_nr > min_red) error("Illegal reduction of variable");
+}
+
+void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {
+
+  //xxx, ctd here
+
+
+}
 
 
 
