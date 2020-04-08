@@ -106,6 +106,8 @@ public:
   bool operator !=(literal lit) const {return l!=lit.l;};
   bool operator <(literal lit) const {return abs(l) < abs(lit.l); };
 
+  literal neg() const {return literal(-l);}
+  literal operator -() const {return neg();}
 
   variable var() const {return variable(abs(l));}
 
@@ -488,6 +490,7 @@ private:
     return false;
   }
 
+
 };
 
 
@@ -604,20 +607,20 @@ QBF_Main::proof_step QBF_Main::parse_proof_step(std::istream& in) {
 }
 
 void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
+  try {
+    check_wf_clause(step.c);
 
-  check_wf_clause(step.c);
+    switch (step.kind) {
+      case proof_step::INITIAL: check_initial(step.c); break;
+      case proof_step::REDUCTION: check_reduction(step.c,step.id1); break;
+      case proof_step::RESOLUTION: check_resolution(step.c,step.id1,step.id2); break;
+    }
 
-  switch (step.kind) {
-    case proof_step::INITIAL: check_initial(step.c); break;
-    case proof_step::REDUCTION: check_reduction(step.c,step.id1); break;
-    case proof_step::RESOLUTION: check_resolution(step.c,step.id1,step.id2); break;
-  }
+    // Register clause
+    cmap.append_as(step.c,step.idt);
 
-  // Register clause
-  cmap.append_as(step.c,step.idt);
-
-  seen_empty = seen_empty || clauses.is_empty(step.c);
-
+    seen_empty = seen_empty || clauses.is_empty(step.c);
+  } catch (error_e &e) {e.specify("Checking step " + step.idt.str()); throw; }
 
 }
 
@@ -684,8 +687,75 @@ void QBF_Main::check_reduction(clause c, clause_id id1) {
 
 void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {
 
-  //xxx, ctd here
+  try {
 
+    clause c1 = cmap.lookup(id1);
+    clause c2 = cmap.lookup(id2);
+
+    try {
+      clause_iterator it = clauses.iter(c);
+      clause_iterator it1 = clauses.iter(c1);
+      clause_iterator it2 = clauses.iter(c2);
+
+
+      // Quantifier that can be reduced
+      quantifier_t red_quant = (mode==CM_SAT)?Q_EX:Q_ALL;
+      quantifier_t res_quant = (mode==CM_SAT)?Q_ALL:Q_EX;
+
+      size_t min_red = SIZE_MAX; // Minimum variable position that has been reduced
+      size_t max_nr = 0;         // Maximum non-reducible variable position
+
+      bool has_resolved=false;
+
+      while (true) {
+        literal nl = *it;  // We have to match this literal
+        bool at_end = !it.hasnext();
+
+        // reduce-steps on c1
+        while (it1.hasnext() && get_quant(it1->var()) == red_quant && (at_end || *it1 < nl)) {
+          min_red = min(min_red, get_pos(it1->var()));
+          ++it1;
+        }
+
+        // reduce-steps on c2
+        while (it2.hasnext() && get_quant(it2->var()) == red_quant && (at_end || *it2 < nl)) {
+          min_red = min(min_red, get_pos(it2->var()));
+          ++it2;
+        }
+
+        // Check for resolution
+        if (!has_resolved && it1.hasnext() && it2.hasnext() && *it1 == -(*it2) && get_quant(it1->var()) == res_quant) {
+          has_resolved=true;
+          ++it1;
+          ++it2;
+          continue; // After resolution, some more reductions may follow
+        }
+
+        // Special case if we have reached end
+        if (at_end) {
+          if (it1.hasnext() || it2.hasnext()) error("Resolution got stuck at: " + nl.str() + " <- " + it1->str() + ", " + it2->str());
+          if (!has_resolved) error("No resolution took place [step is technically still OK]"); // It's just a reduction of two reduction-equivalent clauses
+
+          if (max_nr > min_red) error("Illegal reduction of variable: " + to_string(min_red) + " < " + to_string(max_nr));
+
+          break;
+        }
+
+
+        // Whenever we get here, the literal at "it" should be contained in at least one of the clauses
+        bool found=false;
+        if (nl == *it1) {found=true; ++it1;}
+        if (nl == *it2) {found=true; ++it2;}
+
+        if (!found) error("Resolution got stuck at: " + nl.str() + " <- " + it1->str() + ", " + it2->str());
+
+        // If non-reducible variable quantifier,
+        if (get_quant(nl.var()) == res_quant) max_nr = max(max_nr,get_pos(nl.var()));
+
+        ++it;
+      }
+    } catch (error_e &e) {e.specify("id1 = " + str(c1) + " AND id2 = " + str(c2)); throw;}
+  } catch (error_e &e) {e.specify("Checking resolution " + str(c) + " <- " + id1.str() + ", " + id2.str()); throw;}
 
 }
 
