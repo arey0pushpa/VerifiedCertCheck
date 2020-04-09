@@ -1,9 +1,12 @@
 CC=clang++
-CFLAGS=-Wall -std=c++2a -ldl
+CFLAGS=-Wall -std=c++2a -ldl -lboost_iostreams
 
-debug:clean
-	$(CC) $(CFLAGS) -g -o qbfpvf_proto main.cpp
+profile:clean
+	$(CC) $(CFLAGS) -g -lprofiler -O3 -o qbfpvf_proto main.cpp
+
 stable:clean
 	$(CC) $(CFLAGS) -O3 -o qbfpvf_proto main.cpp
+debug:clean
+	$(CC) $(CFLAGS) -g -o qbfpvf_proto main.cpp
 clean:
 	rm -vfr *~ qbfpvf_proto

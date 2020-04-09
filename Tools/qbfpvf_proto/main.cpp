@@ -9,6 +9,17 @@
 #define BOOST_STACKTRACE_USE_ADDR2LINE
 #include <boost/stacktrace.hpp>
 
+#include <boost/iostreams/device/mapped_file.hpp>
+
+// #include <boost/safe_numerics/safe_integer.hpp>
+
+// #include <boost/spirit/include/qi.hpp>
+// #include <boost/spirit/include/phoenix_core.hpp>
+// #include <boost/spirit/include/phoenix_operator.hpp>
+// #include <boost/spirit/include/phoenix_fusion.hpp>
+// #include <boost/spirit/include/phoenix_stl.hpp>
+// #include <boost/spirit/include/phoenix_object.hpp>
+
 using namespace std;
 
 class error_e : public exception {
@@ -57,6 +68,131 @@ void parse_ignore_comments(istream &in) {
   }
 }
 
+class MMFileParser {
+private:
+  typedef boost::iostreams::mapped_file_source::iterator iterator;
+  boost::iostreams::mapped_file_source file;
+  iterator it;
+  iterator end;
+
+public:
+  MMFileParser(string fname) : file(fname), it(file.begin()), end(file.end()) {
+    if (!file.is_open()) error("Error opening file '" + fname + "'"); // Is this check required?
+  }
+
+  ~MMFileParser() {
+    file.close();  // Is this required, or done automatically by destructor of file?
+  }
+
+  // Primitives
+  bool at_end() {return it==end;}
+  char peek() { if (at_end()) error("Parser error, parsed beyond EOF"); return *it;}
+  char get() { char res=peek(); ++it; return res; }
+
+  // Slightly dimacs specific stuff
+  void until(char c, bool stop_at_end=true) {
+    while (get() != c) if (stop_at_end && at_end()) break;
+  }
+
+  bool is_ws(char c) {
+    switch (c) {
+      case ' ': case '\t': case '\n': case '\f': return true;
+      default: return false;
+    }
+  }
+
+  void ws() {
+    while (!at_end()) {
+      if (is_ws(peek())) {get(); continue;}
+      if (peek()=='c') { until('\n'); continue; }
+      break;
+    }
+  }
+
+  void expect_exact(string s) {
+    for (auto it=s.begin();it!=s.end();++it) if (get()!=*it) error("Parser error: expected '"+s+"'");
+  }
+
+  string word() {
+    string res="";
+    ws();
+    while (!is_ws(peek())) res+=get();
+    return res;
+  }
+
+  void keyword(string s) {
+    if (word() != s) error("Expected keyword'"+s+"'");
+  }
+
+  template<typename T> T uint(bool skip_ws=true) {
+    // TODO: Use boost safe-integer here, once my Ubuntu has updated to recent boost version!
+
+    static_assert(std::numeric_limits<T>::max()>100,"limit too small");
+
+    if (skip_ws) ws();
+
+    T res=0;
+    bool p=false;
+
+    while (!at_end()) {
+      char c=get();
+      if (is_ws(c)) break;
+      if (c<'0' || c>'9') error("Parser error, expected number");
+      T d = c-'0';
+
+      if (res > std::numeric_limits<T>::max()/10 - d) error("Parser error: integer overflow"); // TODO Unprecise check?
+      res = res*10+d;
+      p=true;
+    }
+
+    if (!p) error("Parser error: expected integer");
+
+//     clog<<"uint "<<res<<endl;
+
+    return res;
+  }
+
+  template<typename T> T sint() {
+    static_assert(std::numeric_limits<T>::min()<-100,"");
+
+    ws();
+
+    T sgn=1;
+    if (peek()=='-') {sgn=-1; get();}
+
+    return sgn * uint<T>(false);
+  }
+
+
+
+//   template<typename P> void parse(P expr) {
+//
+//     string what;
+//
+//
+//     // TODO: Error handling. The examples from boost:spirit seem to require rules (whatever that is), not expressions!
+//     // So how does an expression signal an error?
+// //     auto expr2 = qi::on_error<qi::fail>(expr,[&](qi::unused_type, qi::unused_type, qi::unused_type, string _what){what=_what;});
+//     //auto expr2 = qi::on_error<qi::fail>(expr,[&what](qi::unused_type, qi::unused_type, qi::unused_type, string _what){what=_what;});
+//
+//     if (!qi::phrase_parse(it,file.end(),expr,qi::ascii::space)) error("Parser error at: " + to_string(it - file.begin()));
+//   }
+
+//   template<typename R, typename P> R parse(P expr) {
+//     R res;
+//
+//     // TODO: Error handling. The examples from boost:spirit seem to require rules (whatever that is), not expressions!
+//     // So how does an expression signal an error?
+// //     auto expr2 = qi::on_error<qi::fail>(expr,[&](qi::unused_type, qi::unused_type, qi::unused_type, string _what){what=_what;});
+//     //auto expr2 = qi::on_error<qi::fail>(expr,[&what](qi::unused_type, qi::unused_type, qi::unused_type, string _what){what=_what;});
+//
+//     if (!qi::phrase_parse(it,file.end(),expr,qi::ascii::space,res)) error("Parser error at: " + to_string(it - file.begin()));
+//
+//     return res;
+//   }
+
+
+};
 
 
 
@@ -121,6 +257,9 @@ literal parse_literal(istream &in) {
   in>>ws; in>>l; return (literal(l));
 }
 
+literal parse_literal(MMFileParser &in) {
+  in.ws(); return (literal(in.sint<var_t>()));
+}
 
 /*
  * Note: The Clauses and clause class is used for both, clauses and cubes!
@@ -200,6 +339,20 @@ public:
 
 public:
   clause parse_clause(istream &in);
+  clause parse_clause(MMFileParser &in);
+
+//   clause parse_clause(MMFileParser &mmf) {
+//     clause res=start_clause();
+//
+//     literal l;
+//     do {
+//       l = literal(mmf.parse<int>(qi::int_));
+//       add_literal(l);
+//     } while (l!=lit_zero);
+//
+//     return res;
+//   }
+//
 
 
 };
@@ -234,6 +387,10 @@ clause_id parse_clause_id(istream &in) {
   return clause_id(idx1);
 }
 
+clause_id parse_clause_id(MMFileParser &in) {
+  in.ws();
+  return clause_id(in.uint<size_t>());
+}
 
 class ClauseMap {
 
@@ -388,6 +545,7 @@ private:
   };
 
   proof_step parse_proof_step(istream &in);
+  proof_step parse_proof_step(MMFileParser &in);
 
 
 public:
@@ -395,6 +553,7 @@ public:
 
 
   void check_proof(istream &in);
+  void check_proof(MMFileParser &in);
 
 
   bool is_initial_clause(clause c) {return matrix.count(c)!=0;}
@@ -516,8 +675,6 @@ inline bool Clauses::Clause_Hash_Eq::operator() (const clause &c1, const clause 
   }
 }
 
-
-
 void QBF_Main::check_proof(std::istream& in) {
 
   in.exceptions(in.failbit|in.badbit);
@@ -582,11 +739,73 @@ void QBF_Main::check_proof(std::istream& in) {
 
 }
 
+void QBF_Main::check_proof(MMFileParser& in) {
+
+  {
+    in.ws();
+    in.keyword("r");
+
+    string ms = in.word();
+
+    if (ms=="sat") mode=CM_SAT;
+    else if (ms=="unsat") mode=CM_UNSAT;
+    else error("Unknown mode: r " + ms);
+  }
+
+  in.keyword("p"); in.keyword("qrp");
+  in.uint<size_t>(); in.uint<size_t>();
+
+  // Add matrix clauses as initial clauses to clause map
+// Disabled for now. But ultimately, we want implicit IDs for original clauses?
+//   if (mode == CM_UNSAT) {
+//     for (auto it = matrix.begin();it!=matrix.end();++it) {
+//       cmap.append(*it);
+//     }
+//   }
+
+  // Init valuation used for initial cube checking
+  if (mode==CM_SAT) {
+    val.init(n);
+  }
+
+  // Skip over quantifiers and comments (we do not even check them for consistency)
+  in.ws();
+  while (!in.at_end()) {
+    char c = in.peek();
+    if (!(c=='e' || c=='a')) break;
+    in.until('\n');
+    in.ws();
+  }
+
+
+  // Read steps
+
+  while (!in.at_end()) {
+    check_proof_step(parse_proof_step(in));
+    in.ws();
+  }
+
+
+  // TODO: Check remaining initial cubes
+
+
+  if (!seen_empty) error("Proof contains no empty clause/cube");
+
+
+  switch (mode) {
+    case CM_SAT: cout<<"s SAT"<<endl; break;
+    case CM_UNSAT: cout<<"s UNSAT"<<endl; break;
+  }
+
+}
+
+
+
 QBF_Main::proof_step QBF_Main::parse_proof_step(std::istream& in) {
   proof_step r;
 
   r.idt = parse_clause_id(in);
-  if (!r.idt.valid()) error("Expected clause id");
+  if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
 
   r.c = clauses.parse_clause(in);
 
@@ -605,6 +824,31 @@ QBF_Main::proof_step QBF_Main::parse_proof_step(std::istream& in) {
     return r;
 
 }
+
+QBF_Main::proof_step QBF_Main::parse_proof_step(MMFileParser& in) {
+  proof_step r;
+
+  r.idt = parse_clause_id(in);
+  if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
+
+  r.c = clauses.parse_clause(in);
+
+  r.id1 = parse_clause_id(in);
+  if (r.id1.is_zero()) {r.kind=proof_step::INITIAL; goto finally; }
+  r.id2 = parse_clause_id(in);
+  if (r.id2.is_zero()) {r.kind=proof_step::REDUCTION; goto finally; }
+
+  if (parse_clause_id(in).is_zero()) {r.kind=proof_step::RESOLUTION; goto finally; }
+
+  error("Expected at most 2 ids for step");
+
+
+  finally:
+    in.ws();
+    return r;
+
+}
+
 
 void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
   try {
@@ -824,6 +1068,18 @@ clause Clauses::parse_clause(istream &in) {
   return res;
 }
 
+clause Clauses::parse_clause(MMFileParser &in) {
+  clause res = start_clause();
+
+  while (true) {
+    literal l = parse_literal(in);
+    if (l==lit_zero) {finish_clause(); break;}
+    add_literal(l);
+  };
+
+  return res;
+}
+
 
 bool QBF_Main::parse_vardecl(istream &in) {
   if (in.eof()) return false;
@@ -916,12 +1172,17 @@ int main(int argc, char **argv) {
       cout<<"c parsed"<<endl;
     }
 
+    {
+      cout<<"c parsing "<<qrp_file<<endl;
 
-    cout<<"c parsing "<<qrp_file<<endl;
-    ifstream pfs(qrp_file,ifstream::in);
-    qbf.check_proof(pfs);
-    cout<<"c parsed"<<endl;
+      MMFileParser pfs(qrp_file);
+      qbf.check_proof(pfs);
 
+  //     ifstream pfs(qrp_file,ifstream::in);
+  //     qbf.check_proof(pfs);
+
+      cout<<"c parsed"<<endl;
+    }
 
 
     return 0;
