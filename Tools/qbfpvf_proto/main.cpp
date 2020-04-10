@@ -68,6 +68,8 @@ void parse_ignore_comments(istream &in) {
   }
 }
 
+static const bool deferred_initial_checking = true;
+
 class MMFileParser {
 private:
   typedef boost::iostreams::mapped_file_source::iterator iterator;
@@ -339,6 +341,10 @@ public:
 
 public:
   clause parse_clause(istream &in);
+
+
+//   xxx: do minimal check parser for proof clauses, as most errors in there do not matter at all!
+
   clause parse_clause(MMFileParser &in);
 
 //   clause parse_clause(MMFileParser &mmf) {
@@ -518,6 +524,7 @@ public:
     base = new mask_t[2*n+1];
     m = base + n;
     clear();
+    clog<<"c Using deferred initial cube checking, bit_width = "<<bit_width<<endl;
   }
 
 
@@ -829,8 +836,8 @@ void QBF_Main::check_proof(std::istream& in) {
 
   // Init valuation used for initial cube checking
   if (mode==CM_SAT) {
-    val.init(n);
-    pval.init(n);
+    if (deferred_initial_checking) pval.init(n);
+    else val.init(n);
   }
 
   // Skip over quantifiers and comments (we do not even check them for consistency)
@@ -891,8 +898,8 @@ void QBF_Main::check_proof(MMFileParser& in) {
 
   // Init valuation used for initial cube checking
   if (mode==CM_SAT) {
-    val.init(n);
-    pval.init(n);
+    if (deferred_initial_checking) pval.init(n);
+    else val.init(n);
   }
 
   // Skip over quantifiers and comments (we do not even check them for consistency)
@@ -994,8 +1001,6 @@ void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
   } catch (error_e &e) {e.specify("Checking step " + step.idt.str()); throw; }
 
 }
-
-static const bool deferred_initial_checking = true;
 
 void QBF_Main::check_initial(clause c) {
   switch (mode) {

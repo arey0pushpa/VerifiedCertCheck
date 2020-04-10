@@ -5,7 +5,7 @@ profile:clean
 	$(CC) $(CFLAGS) -g -lprofiler -O3 -o qbfpvf_proto main.cpp
 
 stable:clean
-	$(CC) $(CFLAGS) -O3 -o qbfpvf_proto main.cpp
+	$(CC) $(CFLAGS) -D NDEBUG -O3 -o qbfpvf_proto main.cpp
 debug:clean
 	$(CC) $(CFLAGS) -g -o qbfpvf_proto main.cpp
 clean:
