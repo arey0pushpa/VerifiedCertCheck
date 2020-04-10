@@ -165,6 +165,36 @@ public:
     return sgn * uint<T>(false);
   }
 
+  // Unsafe versions, only minimal checks to keep defined behaviour
+
+  // Parse a uint
+  template <typename T> inline T unsafe_uint(bool skip_ws=true) {
+    if (skip_ws) ws();
+    char c = get();
+    if (c<'0' || c>'9') error("Parser error: expected uint");
+
+    T res=c - '0';
+
+    while (!at_end()) {
+      char c = peek();
+      if (c<'0' || c>'9') break;
+      get();
+      res=res*10 + (c - '0');
+    }
+
+    return res;
+  }
+
+  template<typename T> inline T unsafe_sint() {
+    static_assert(std::numeric_limits<T>::min()<-100,"");
+
+    ws();
+
+    T sgn=1;
+    if (peek()=='-') {sgn=-1; get();}
+
+    return sgn * unsafe_uint<T>(false);
+  }
 
 
 //   template<typename P> void parse(P expr) {
@@ -260,7 +290,11 @@ inline literal parse_literal(istream &in) {
 }
 
 inline literal parse_literal(MMFileParser &in) {
-  in.ws(); return (literal(in.sint<var_t>()));
+  return (literal(in.sint<var_t>()));
+}
+
+inline literal unsafe_parse_literal(MMFileParser &in) {
+  return (literal(in.unsafe_sint<var_t>()));
 }
 
 /*
@@ -343,22 +377,10 @@ public:
   clause parse_clause(istream &in);
 
 
-//   xxx: do minimal check parser for proof clauses, as most errors in there do not matter at all!
+//    xxx: do minimal check parser for proof clauses, as most errors in there do not matter at all!
 
   clause parse_clause(MMFileParser &in);
-
-//   clause parse_clause(MMFileParser &mmf) {
-//     clause res=start_clause();
-//
-//     literal l;
-//     do {
-//       l = literal(mmf.parse<int>(qi::int_));
-//       add_literal(l);
-//     } while (l!=lit_zero);
-//
-//     return res;
-//   }
-//
+  clause unsafe_parse_clause(MMFileParser &in);
 
 
 };
@@ -394,9 +416,13 @@ clause_id parse_clause_id(istream &in) {
 }
 
 clause_id parse_clause_id(MMFileParser &in) {
-  in.ws();
   return clause_id(in.uint<size_t>());
 }
+
+clause_id unsafe_parse_clause_id(MMFileParser &in) {
+  return clause_id(in.unsafe_uint<size_t>());
+}
+
 
 class ClauseMap {
 
@@ -552,15 +578,21 @@ public:
 
   inline void set(literal l, mask_t mask) {
     var_t li = l.as_int();
-    assert(m && abs(li)<=n);
+    assert(m && abs(li)<=n && (m[-li]|mask) == 0);
 
-    m[li]|=mask; m[-li]&=~mask;
+    m[li]|=mask; // m[-li]&=~mask;
   }
 
-  inline void reset(literal l, mask_t mask) {
+//   inline void reset(literal l, mask_t mask) {
+//     var_t li = l.as_int();
+//     assert(m && abs(li)<=n);
+//     m[li]&=~mask; m[-li]&=~mask;
+//   }
+
+  inline void reset_all(literal l) {
     var_t li = l.as_int();
     assert(m && abs(li)<=n);
-    m[li]&=~mask; m[-li]&=~mask;
+    m[li]=0; m[-li]=0;
   }
 
   inline mask_t get(literal l) {
@@ -632,8 +664,9 @@ private:
     clause_id id2;
   };
 
-  proof_step parse_proof_step(istream &in);
-  proof_step parse_proof_step(MMFileParser &in);
+  inline proof_step parse_proof_step(istream &in);
+  inline proof_step parse_proof_step(MMFileParser &in);
+  inline proof_step unsafe_parse_proof_step(MMFileParser &in);
 
 
 public:
@@ -771,12 +804,18 @@ void QBF_Main::check_deferred_initial_cubes() {
     for (auto it = matrix.begin(); it!=matrix.end();++it) {
       auto mask=pval.mask_no_bits();
       // TODO: Check if early termination of this loop on mask==mask_all_bits is efficient!
-      for (auto clit=clauses.iter(*it);clit.hasnext();++clit) mask|=pval.get(*clit);
+      for (auto clit=clauses.iter(*it);clit.hasnext() && mask != mask_all_bits;++clit) mask|=pval.get(*clit);
 
       // TODO: Elaborate on error message, identify errounous cubes
       if (mask != mask_all_bits) error("Initial cube does not satisfy clause. cube: tbd clause: "+str(*it));
     }
   }
+
+  // Clear valuation again
+//   for (auto it=unchecked_initial_cubes.begin();it<unchecked_initial_cubes.end();++it) {
+//     for (auto clit=clauses.iter(*it);clit.hasnext();++clit) pval.reset_all(*clit);
+//   }
+
 
   // All cubes checked
   unchecked_initial_cubes.clear();
@@ -915,7 +954,7 @@ void QBF_Main::check_proof(MMFileParser& in) {
   // Read steps
 
   while (!in.at_end()) {
-    check_proof_step(parse_proof_step(in));
+    check_proof_step(unsafe_parse_proof_step(in));
     in.ws();
   }
 
@@ -983,10 +1022,35 @@ QBF_Main::proof_step QBF_Main::parse_proof_step(MMFileParser& in) {
 
 }
 
+QBF_Main::proof_step QBF_Main::unsafe_parse_proof_step(MMFileParser& in) {
+  proof_step r;
+
+  r.idt = unsafe_parse_clause_id(in);
+  if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
+
+  r.c = clauses.unsafe_parse_clause(in);
+
+  r.id1 = unsafe_parse_clause_id(in);
+  if (r.id1.is_zero()) {r.kind=proof_step::INITIAL; goto finally; }
+  r.id2 = unsafe_parse_clause_id(in);
+  if (r.id2.is_zero()) {r.kind=proof_step::REDUCTION; goto finally; }
+
+  if (unsafe_parse_clause_id(in).is_zero()) {r.kind=proof_step::RESOLUTION; goto finally; }
+
+  error("Expected at most 2 ids for step");
+
+  finally:
+    in.ws();
+    return r;
+
+}
+
+
+
 
 void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
   try {
-    check_wf_clause(step.c);
+    //check_wf_clause(step.c);  done implicitly in check_xxx functions
 
     switch (step.kind) {
       case proof_step::INITIAL: check_initial(step.c); break;
@@ -1005,6 +1069,8 @@ void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
 void QBF_Main::check_initial(clause c) {
   switch (mode) {
     case CM_SAT:
+      // Ensure that cube is valid (in range, ordered)
+      check_wf_clause(c);
 
       if (deferred_initial_checking) {
         check_initial_defer(c);
@@ -1047,7 +1113,7 @@ void QBF_Main::check_reduction(clause c, clause_id id1) {
 
 
   while (true) {
-    // Reduce all variables in original clause, until we found matching variable in new clause
+    // Reduce all literals in original clause, until we found matching literal in new clause
     while (*it1 != *it) {
       if (!it1.hasnext()) error("Literal does not occur in original clause: " + it->str());
 
@@ -1060,6 +1126,8 @@ void QBF_Main::check_reduction(clause c, clause_id id1) {
 
     if (!it.hasnext()) break;
 
+    // Note: the literal at it is valid here, as it equals a literal from a clause already in the DB
+    // if (!valid_var(it->var())) error("Invalid variable");
     if (get_quant(it->var()) != red_quant) max_nr = max (max_nr,get_pos(it->var()));
 
     ++it; ++it1;
@@ -1106,24 +1174,43 @@ void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {
           ++it2;
         }
 
-        // Check for resolution
-        if (!has_resolved && it1.hasnext() && it2.hasnext() && *it1 == -(*it2) && get_quant(it1->var()) == res_quant) {
-          has_resolved=true;
-          ++it1;
-          ++it2;
-          continue; // After resolution, some more reductions may follow
+        // Check for resolution (and tautology)
+        if (it1.hasnext() && it2.hasnext() && *it1 == -(*it2)) {
+          if (get_quant(it1->var()) == res_quant) {
+            if (has_resolved) error("double resolution. 2nd variable is " + it1->var().str());
+            has_resolved=true;
+            ++it1;
+            ++it2;
+            continue; // After resolution, some more reductions may follow
+          } else {
+            // This tries to introduce a tautology ...
+            error("resolution results in tautology on variable " + it1->var().str());
+          }
         }
+
+//         if (!has_resolved &&  && get_quant(it1->var()) == res_quant) {
+//           has_resolved=true;
+//           ++it1;
+//           ++it2;
+//           continue; // After resolution, some more reductions may follow
+//         }
 
         // Special case if we have reached end
         if (at_end) {
           if (it1.hasnext() || it2.hasnext()) error("Resolution got stuck at: " + nl.str() + " <- " + it1->str() + ", " + it2->str());
-          if (!has_resolved) error("No resolution took place [step is technically still OK]"); // It's just a reduction of two reduction-equivalent clauses
+          if (!has_resolved) error("No resolution took place"); // Step would still be sound, as "C1 && C2" is equivalent to "C1 && C2 && (C1 || C2)", and dually for cubes.
 
           if (max_nr > min_red) error("Illegal reduction of variable: " + to_string(min_red) + " < " + to_string(max_nr));
 
           break;
         }
 
+
+        /* Note: at this point, *it1 and *it2 are either equal or bigger than nl. Moreover, they are no opposite literals.
+         *
+         * Next, we check that one of them is equal to nl. This implies that the other one is also equal, or bigger.
+         * As we can assume that clauses in the DB are sorted, the next literal we can check from it must be bigger than this literal, ensuring sortedness of this clause.
+         */
 
         // Whenever we get here, the literal at "it" should be contained in at least one of the clauses
         bool found=false;
@@ -1132,6 +1219,8 @@ void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {
 
         if (!found) error("Resolution got stuck at: " + nl.str() + " <- " + it1->str() + ", " + it2->str());
 
+        // Note: nl is a valid literal, as it equals (at least) one literal of an already checked clause from the DB
+        // if (!valid_var(nl.var())) error("Invalid literal " + nl.str());
         // If non-reducible variable quantifier,
         if (get_quant(nl.var()) == res_quant) max_nr = max(max_nr,get_pos(nl.var()));
 
@@ -1218,6 +1307,19 @@ clause Clauses::parse_clause(MMFileParser &in) {
 
   return res;
 }
+
+clause Clauses::unsafe_parse_clause(MMFileParser &in) {
+  clause res = start_clause();
+
+  while (true) {
+    literal l = unsafe_parse_literal(in);
+    if (l==lit_zero) {finish_clause(); break;}
+    add_literal(l);
+  };
+
+  return res;
+}
+
 
 
 bool QBF_Main::parse_vardecl(istream &in) {
