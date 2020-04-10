@@ -85,23 +85,23 @@ public:
   }
 
   // Primitives
-  bool at_end() {return it==end;}
-  char peek() { if (at_end()) error("Parser error, parsed beyond EOF"); return *it;}
-  char get() { char res=peek(); ++it; return res; }
+  inline bool at_end() {return it==end;}
+  inline char peek() { if (at_end()) error("Parser error, parsed beyond EOF"); return *it;}
+  inline char get() { char res=peek(); ++it; return res; }
 
   // Slightly dimacs specific stuff
-  void until(char c, bool stop_at_end=true) {
+  inline void until(char c, bool stop_at_end=true) {
     while (get() != c) if (stop_at_end && at_end()) break;
   }
 
-  bool is_ws(char c) {
+  inline bool is_ws(char c) {
     switch (c) {
       case ' ': case '\t': case '\n': case '\f': return true;
       default: return false;
     }
   }
 
-  void ws() {
+  inline void ws() {
     while (!at_end()) {
       if (is_ws(peek())) {get(); continue;}
       if (peek()=='c') { until('\n'); continue; }
@@ -109,22 +109,22 @@ public:
     }
   }
 
-  void expect_exact(string s) {
+  inline void expect_exact(string s) {
     for (auto it=s.begin();it!=s.end();++it) if (get()!=*it) error("Parser error: expected '"+s+"'");
   }
 
-  string word() {
+  inline string word() {
     string res="";
     ws();
     while (!is_ws(peek())) res+=get();
     return res;
   }
 
-  void keyword(string s) {
+  inline void keyword(string s) {
     if (word() != s) error("Expected keyword'"+s+"'");
   }
 
-  template<typename T> T uint(bool skip_ws=true) {
+  template<typename T> inline T uint(bool skip_ws=true) {
     // TODO: Use boost safe-integer here, once my Ubuntu has updated to recent boost version!
 
     static_assert(std::numeric_limits<T>::max()>100,"limit too small");
@@ -152,7 +152,7 @@ public:
     return res;
   }
 
-  template<typename T> T sint() {
+  template<typename T> inline T sint() {
     static_assert(std::numeric_limits<T>::min()<-100,"");
 
     ws();
@@ -218,7 +218,7 @@ public:
 
 static const variable var_zero = variable(0);
 
-variable parse_variable(istream &in) {
+inline variable parse_variable(istream &in) {
   var_t l;
   in>>ws; in>>l;
   if (l<0) error("Negative variable");
@@ -252,12 +252,12 @@ public:
 static const literal lit_zero = literal();
 
 
-literal parse_literal(istream &in) {
+inline literal parse_literal(istream &in) {
   var_t l;
   in>>ws; in>>l; return (literal(l));
 }
 
-literal parse_literal(MMFileParser &in) {
+inline literal parse_literal(MMFileParser &in) {
   in.ws(); return (literal(in.sint<var_t>()));
 }
 
@@ -449,12 +449,17 @@ private:
 
 public:
 
+  void clear() {
+    assert(m);
+    fill(base,base+(2*n+1),false);
+  }
+
   void init(size_t _n) {
     assert(!m && _n>0);
     n=_n;
     base = new bool[2*n+1];
-    fill(base,base+(2*n+1),false);
     m = base + n;
+    clear();
   }
 
 
@@ -476,6 +481,82 @@ public:
   }
 
   bool get(literal l) {
+    var_t i = l.as_int();
+    assert(m && abs(i)<=n);
+    return m[i];
+  }
+
+};
+
+
+class ParValuation {
+
+public:
+  typedef uint64_t mask_t;
+  static const size_t bit_width = sizeof(mask_t)*8;
+
+  static_assert(numeric_limits<mask_t>::is_integer,"");
+  static_assert(!numeric_limits<mask_t>::is_signed,"");
+
+  size_t n = 0;
+  mask_t *base = NULL;
+  mask_t *m = NULL;
+
+  ParValuation(ParValuation const &) = delete;
+  ParValuation &operator=(ParValuation const &) = delete;
+
+public:
+
+  void clear() {
+    assert(m);
+    fill(base,base+(2*n+1),0);
+  }
+
+  void init(size_t _n) {
+    assert(!m && _n>0);
+    n=_n;
+    base = new mask_t[2*n+1];
+    m = base + n;
+    clear();
+  }
+
+
+  ParValuation() {}
+  ParValuation(size_t _n) { init(_n); }
+  ~ParValuation() { if (base) delete [] base;}
+
+  inline mask_t get_mask(size_t i) {
+    assert(i<bit_width);
+    return (1<<i);
+  }
+
+  inline mask_t mask_next(mask_t mask) {
+    //assert(mask < get_mask(bit_width-1));
+    // assert(mask!=0); // The last shift will shift out the bit, and mask will get 0
+    return mask<<1;
+  }
+
+  inline mask_t mask_no_bits() {return 0;}
+
+  inline mask_t mask_all_bits(size_t n) {
+    assert(n<=bit_width);
+    return n==0?0:numeric_limits<mask_t>::max()>>(bit_width-n);
+  }
+
+  inline void set(literal l, mask_t mask) {
+    var_t li = l.as_int();
+    assert(m && abs(li)<=n);
+
+    m[li]|=mask; m[-li]&=~mask;
+  }
+
+  inline void reset(literal l, mask_t mask) {
+    var_t li = l.as_int();
+    assert(m && abs(li)<=n);
+    m[li]&=~mask; m[-li]&=~mask;
+  }
+
+  inline mask_t get(literal l) {
     var_t i = l.as_int();
     assert(m && abs(i)<=n);
     return m[i];
@@ -514,7 +595,7 @@ private:
 
 
   Valuation val;                    // Valuation used for checking initial cubes
-
+  ParValuation pval;
 
 public:
   QBF_Main() : matrix(1,clauses.cheq,clauses.cheq) {};
@@ -649,8 +730,51 @@ private:
     return false;
   }
 
+private:
+  // Deferred (clustered) initial cube checking
+  vector<clause> unchecked_initial_cubes;
+
+  void check_deferred_initial_cubes();
+  inline void check_initial_defer(clause c) {
+    unchecked_initial_cubes.push_back(c);
+    if (unchecked_initial_cubes.size() == ParValuation::bit_width) check_deferred_initial_cubes();
+  }
 
 };
+
+void QBF_Main::check_deferred_initial_cubes() {
+  if (unchecked_initial_cubes.size() == 0) return;
+
+  assert(unchecked_initial_cubes.size()<=ParValuation::bit_width);
+
+
+  // Process initial cubes, create valuation
+  pval.clear();
+  {
+    auto mask=pval.get_mask(0);
+    for (auto it=unchecked_initial_cubes.begin();it<unchecked_initial_cubes.end();++it) {
+      for (auto clit=clauses.iter(*it);clit.hasnext();++clit) pval.set(*clit,mask);
+      mask=pval.mask_next(mask);
+    }
+  }
+
+  // Process matrix, check that every clause is satisfied by every cube
+  {
+    auto mask_all_bits = pval.mask_all_bits(unchecked_initial_cubes.size());
+    for (auto it = matrix.begin(); it!=matrix.end();++it) {
+      auto mask=pval.mask_no_bits();
+      // TODO: Check if early termination of this loop on mask==mask_all_bits is efficient!
+      for (auto clit=clauses.iter(*it);clit.hasnext();++clit) mask|=pval.get(*clit);
+
+      // TODO: Elaborate on error message, identify errounous cubes
+      if (mask != mask_all_bits) error("Initial cube does not satisfy clause. cube: tbd clause: "+str(*it));
+    }
+  }
+
+  // All cubes checked
+  unchecked_initial_cubes.clear();
+}
+
 
 
 inline size_t Clauses::Clause_Hash_Eq::operator() (const clause &c) const {
@@ -706,6 +830,7 @@ void QBF_Main::check_proof(std::istream& in) {
   // Init valuation used for initial cube checking
   if (mode==CM_SAT) {
     val.init(n);
+    pval.init(n);
   }
 
   // Skip over quantifiers and comments (we do not even check them for consistency)
@@ -726,7 +851,8 @@ void QBF_Main::check_proof(std::istream& in) {
   }
 
 
-  // TODO: Check remaining initial cubes
+  // Check any left-over deferred initial cubes
+  check_deferred_initial_cubes();
 
 
   if (!seen_empty) error("Proof contains no empty clause/cube");
@@ -766,6 +892,7 @@ void QBF_Main::check_proof(MMFileParser& in) {
   // Init valuation used for initial cube checking
   if (mode==CM_SAT) {
     val.init(n);
+    pval.init(n);
   }
 
   // Skip over quantifiers and comments (we do not even check them for consistency)
@@ -868,21 +995,28 @@ void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
 
 }
 
+static const bool deferred_initial_checking = true;
+
 void QBF_Main::check_initial(clause c) {
   switch (mode) {
     case CM_SAT:
 
-      // Set clause literals
-      for (auto it=clauses.iter(c);it.hasnext();++it) val.set(*it);
+      if (deferred_initial_checking) {
+        check_initial_defer(c);
+      } else {
 
-      // Check that every clause of initial matrix is satisfied
-      for (auto it = matrix.begin(); it!=matrix.end();++it) {
-        if (!is_clause_sat(*it)) error("Initial cube does not satisfy matrix clause. cube: " + str(c) + " clause: " +str(*it));
+        // Set clause literals
+        val.clear(); // TODO: Check if it's faster to clear valuation, or to reset after check?
+        for (auto it=clauses.iter(c);it.hasnext();++it) val.set(*it);
+
+        // Check that every clause of initial matrix is satisfied
+        for (auto it = matrix.begin(); it!=matrix.end();++it) {
+          if (!is_clause_sat(*it)) error("Initial cube does not satisfy matrix clause. cube: " + str(c) + " clause: " +str(*it));
+        }
+
+  //       // Reset clause literals
+  //       for (auto it=clauses.iter(c);it.hasnext();++it) val.reset(*it);
       }
-
-      // Reset clause literals
-      for (auto it=clauses.iter(c);it.hasnext();++it) val.reset(*it);
-
 
       break; // TODO: Initial cube checking with additional witnesses!
     case CM_UNSAT:
@@ -1165,15 +1299,15 @@ int main(int argc, char **argv) {
 
 
     {
-      cout<<"c parsing "<<dimacs_file<<endl;
+      cout<<"c reading "<<dimacs_file<<endl;
       ifstream fs(dimacs_file,ifstream::in);
       qbf.parse_qdimacs(fs);
       fs.close();
-      cout<<"c parsed"<<endl;
+      cout<<"c done"<<endl;
     }
 
     {
-      cout<<"c parsing "<<qrp_file<<endl;
+      cout<<"c checking proof in "<<qrp_file<<endl;
 
       MMFileParser pfs(qrp_file);
       qbf.check_proof(pfs);
@@ -1181,7 +1315,7 @@ int main(int argc, char **argv) {
   //     ifstream pfs(qrp_file,ifstream::in);
   //     qbf.check_proof(pfs);
 
-      cout<<"c parsed"<<endl;
+//       cout<<"c done"<<endl;
     }
 
 
