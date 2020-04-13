@@ -180,6 +180,8 @@ typedef struct {
   int s_level_unsat; /* scope level of innermost e var */
   char *lits;
   StepId ants[2];
+  byte_t cover_set : 1;     /* Added bit to mark the cover_set */
+  int witness_initial_cube; /* Witness of the initial cube */
 } Step;
 
 typedef struct {

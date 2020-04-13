@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
   }
 
   // Original Print_Proof
-  if (options.print_proof) print_proof();
+  // if (options.print_proof) print_proof();
 
 #ifndef NPICOSAT
   if (options.check_icubes) {
@@ -319,6 +319,8 @@ int main(int argc, char **argv) {
     }
   }
 #endif
+
+  if (options.print_proof) print_proof();
 
   if (options.print_statistics) {
     TIMER_CPU(statistics.time_cpu_total);
@@ -810,6 +812,7 @@ static int check_initial_cubes(void) {
 
     if (options.verbosity > 1) fprintf(stderr, " initialize PicoSAT\n");
     picosat_init();
+    steps[tmp[0]].cover_set = 1;
 
     int witness_picosat[max_vidx + 1];
     memset(witness_picosat, 0, max_vidx + 1);
@@ -862,15 +865,16 @@ static int check_initial_cubes(void) {
       if (options.verbosity >= 1) fprintf(stderr, "FAILED (unsat)\n");
       return ERROR;
     } else if (result_picosat_call == PICOSAT_SATISFIABLE) {
-      fprintf(stderr, "%c %d ", 'w', tmp[0]);
       for (StepId lit_idx = 1; lit_idx <= max_sidx; ++lit_idx) {
         if (witness_picosat[lit_idx] == 1) {
           sat_assgmt = picosat_deref(abs(lit));
-          sat_assgmt > 0 ? fprintf(stderr, "%d ", lit_idx)
-                         : fprintf(stderr, "%d ", lit_idx * -1);
+          if (sat_assgmt > 0) {
+            steps[*tmp].witness_initial_cube = lit_idx;
+          } else {
+            steps[*tmp].witness_initial_cube = lit_idx * -1;
+          }
         }
       }
-      fprintf(stderr, "%d\n", 0);
     }
 
     if (options.verbosity >= 1) fprintf(stderr, "OK (non-covering set)\n");
@@ -1007,12 +1011,12 @@ PRINT_NONFREE_VARS:
     for (j = 0; j < steps[i].num_ants; j++)
       print_num(steps[steps[i].ants[j]].idx, 0);
     print_num(0, 0);
+    if (steps[i].cover_set && options.check_icubes) {
+      print_num(steps[i].witness_initial_cube, 0);
+      print_num(0, 0);
+    }
     if (print_num == &print_ascii_num) printf("\n");
   }
-
-  /* result */
-  // if (print_num == &print_bin_num) print_num(0, 0);
-  // printf("r %s\n", qrp_type == QRPTYPE_SAT ? "sat" : "unsat");
 }
 
 static void print_statistics(void) {
