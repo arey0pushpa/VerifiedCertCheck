@@ -3,6 +3,7 @@
 #include <cassert>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 #include <algorithm>
 #include <boost/format.hpp>
 
@@ -52,6 +53,12 @@ public:
 }
 
 [[noreturn]] void error(boost::format fmt) {error (fmt.str());}
+
+
+
+template<typename T> bool can(T op) {
+  try { op(); return true; } catch (error_e &) {return false;}
+}
 
 void parse_expect(string s, istream &in) {
   string ss; in>>ws>>ss;
@@ -313,6 +320,9 @@ public:
 
   bool is_invalid() {return idx == SIZE_MAX;}
 
+  inline bool operator ==(clause const &cl) const {return idx==cl.idx;}
+  inline bool operator !=(clause const &cl) const {return idx!=cl.idx;}
+
 
 };
 
@@ -344,6 +354,9 @@ private:
 
   bool valid_clause(clause c) const {return c.idx < store.size();}
 
+  clause last_clause = cl_invalid;
+
+
 public:
   struct Clause_Hash_Eq {
     Clauses const &clauses;
@@ -354,14 +367,37 @@ public:
 
   const Clause_Hash_Eq cheq;
 
+  bool clause_eq(const clause &c1, const clause &c2) const; // Equality
+
+
 
 public:
   Clauses () : cheq{*this} {}
 
 public:
-  clause start_clause() { return clause(store.size());};
+  string str(clause c) const {
+    string res = "[" + to_string(c.idx) + "]: ";
+    for (auto it = iter(c); it.hasnext(); ++it) {
+      res+=it.cur().str();
+      res+=" ";
+    }
+
+    res+="0";
+    return res;
+  }
+
+
+public:
+  clause start_clause() { last_clause = clause(store.size()); return last_clause; };
   void add_literal(literal l) {store.push_back(l);}
   void finish_clause() {store.push_back(lit_zero);}
+
+  void discard_last_clause(clause c) {
+    assert(c == last_clause);
+    assert(store.size()>c.idx);
+    store.resize(c.idx);
+    last_clause=cl_invalid;
+  }
 
 public:
   clause_iterator iter(clause c) const {assert(valid_clause(c)); return clause_iterator(&(store[c.idx])); };
@@ -371,6 +407,7 @@ public:
 
 
 public:
+  // Sort and deduplicate clause.
   void sort_clause(clause c);
 
 public:
@@ -407,6 +444,11 @@ public:
   size_t idx() {assert (valid()); return idx1-1;}
 
   string str() const {return std::to_string(idx1);}
+
+  static clause_id first() {return clause_id(1);};
+  clause_id next() {assert(valid()); return clause_id(idx1+1);}
+
+
 };
 
 clause_id parse_clause_id(istream &in) {
@@ -431,7 +473,7 @@ private:
 
 public:
 
-  clause_id end() {
+  clause_id next_append_id() {
     return clause_id(map.size());
   }
 
@@ -440,7 +482,7 @@ public:
   }
 
   clause_id append(clause c) {
-    auto res = clause_id(map.size());
+    auto res = clause_id(map.size()+1);
     map.push_back(c);
     return res;
   }
@@ -461,6 +503,17 @@ public:
     return map[id.idx()];
   }
 
+  inline bool empty() {return map.empty();}
+
+
+  vector<clause>::const_iterator begin() const {return map.begin();}
+  vector<clause>::const_iterator end() const {return map.end();}
+
+  clause_id id_of(vector<clause>::const_iterator it) const {
+    assert(begin()<=it && it <=end());
+    size_t idx1 = it-begin() + 1;
+    return clause_id(idx1);
+  }
 
 
 };
@@ -478,6 +531,9 @@ private:
 
   Valuation(Valuation const &) = delete;
   Valuation &operator=(Valuation const &) = delete;
+
+private:
+  inline bool in_range(literal l) {return (size_t)(abs(l.as_int())) <= n;}
 
 public:
 
@@ -500,21 +556,20 @@ public:
   ~Valuation() { if (base) delete [] base;}
 
   void set(literal l) {
+    assert(m && in_range(l));
     var_t i = l.as_int();
-    assert(m);
-    assert(abs(i)<=n);
     m[i]=true; m[-i]=false;
   }
 
   void reset(literal l) {
+    assert(m && in_range(l));
     var_t i = l.as_int();
-    assert(m && abs(i)<=n);
     m[i]=false; m[-i]=false;
   }
 
   bool get(literal l) {
+    assert(m && in_range(l));
     var_t i = l.as_int();
-    assert(m && abs(i)<=n);
     return m[i];
   }
 
@@ -537,6 +592,10 @@ public:
   ParValuation(ParValuation const &) = delete;
   ParValuation &operator=(ParValuation const &) = delete;
 
+
+private:
+  inline bool in_range(literal l) {return (size_t)(abs(l.as_int())) <= n;}
+
 public:
 
   void clear() {
@@ -550,7 +609,7 @@ public:
     base = new mask_t[2*n+1];
     m = base + n;
     clear();
-    clog<<"c Using deferred initial cube checking, bit_width = "<<bit_width<<endl;
+    cout<<"c Using deferred initial cube checking, bit_width = "<<bit_width<<endl;
   }
 
 
@@ -577,8 +636,10 @@ public:
   }
 
   inline void set(literal l, mask_t mask) {
+    assert(m && in_range(l));
+
     var_t li = l.as_int();
-    assert(m && abs(li)<=n && (m[-li]|mask) == 0);
+    assert((m[-li]&mask) == 0);
 
     m[li]|=mask; // m[-li]&=~mask;
   }
@@ -590,14 +651,14 @@ public:
 //   }
 
   inline void reset_all(literal l) {
+    assert(m && in_range(l));
     var_t li = l.as_int();
-    assert(m && abs(li)<=n);
     m[li]=0; m[-li]=0;
   }
 
   inline mask_t get(literal l) {
+    assert(m && in_range(l));
     var_t i = l.as_int();
-    assert(m && abs(i)<=n);
     return m[i];
   }
 
@@ -623,12 +684,17 @@ private:
   vector<size_t> varpos;        // Position of variable, counting starts at 1. 0 is used to indicate undeclared variables.
   size_t ndecl = 0;             // Number of declared variables
 
-  clause_id cbegin;             // Start of matrix clauses
-  clause_id cend;               // End of matrix clauses
+//   clause_id cbegin;             // Start of matrix clauses
+//   clause_id cend;               // End of matrix clauses
 
   certmode_t mode=CM_SAT;
 
-  unordered_set<clause,Clauses::Clause_Hash_Eq,Clauses::Clause_Hash_Eq> matrix;        // List of all clauses in matrix.
+
+  ClauseMap matrix; // Clauses in matrix, by implicit IDs. May contain invalid-clause if clause was dropped (e.g. tautology).
+
+  // Map of all clauses in matrix to their ID. Note: For UNSAT, the clauses will be inserted into the clause map with these IDs. For SAT, cmap actually contains cubes, and the IDs won't be used.
+//   unordered_map<clause,clause_id,Clauses::Clause_Hash_Eq,Clauses::Clause_Hash_Eq> matrix;
+//   clause_id cur_mcid = clause_id::first(); // ID for next matrix clause
 
   bool seen_empty=false;            // True if empty clause/cube has been added and checked
 
@@ -637,7 +703,7 @@ private:
   ParValuation pval;
 
 public:
-  QBF_Main() : matrix(1,clauses.cheq,clauses.cheq) {};
+  QBF_Main() /*: matrix(1,clauses.cheq,clauses.cheq)*/ {};
 
   void start_vardecl(certmode_t _mode, size_t _n) {
     assert(phase==INIT);
@@ -647,7 +713,6 @@ public:
 
     quants.resize(n+1);
     varpos.resize(n+1,0);
-    cbegin=cend=cmap.end();
 
     phase=VDECL;
   }
@@ -664,8 +729,8 @@ private:
     clause_id id2;
   };
 
-  inline proof_step parse_proof_step(istream &in);
-  inline proof_step parse_proof_step(MMFileParser &in);
+//   inline proof_step parse_proof_step(istream &in);
+//   inline proof_step parse_proof_step(MMFileParser &in);
   inline proof_step unsafe_parse_proof_step(MMFileParser &in);
 
 
@@ -673,11 +738,11 @@ public:
   void parse_qdimacs(istream &in);
 
 
-  void check_proof(istream &in);
+//   void check_proof(istream &in);
   void check_proof(MMFileParser &in);
 
 
-  bool is_initial_clause(clause c) {return matrix.count(c)!=0;}
+//  bool is_initial_clause(clause c) {return matrix.count(c)!=0;}
 
 
   bool valid_var(variable v) {
@@ -708,39 +773,45 @@ public:
   void finish_vardecl() {
     assert(phase==VDECL);
     phase=MDECL;
+//     cur_mcid = clause_id::first();
   }
 
 
   string str(clause c) const {
-    string res;
-    for (auto it = clauses.iter(c); it.hasnext(); ++it) {
-      res+=it.cur().str();
-      res+=" ";
-    }
-
-    res+="0";
-    return res;
+    return clauses.str(c);
   }
 
   void check_wf_clause(clause c);
 
   void declare_matrix_clause(clause c) {
+    clause_id next_id = matrix.next_append_id();
     try {
       assert(phase==MDECL);
       clauses.sort_clause(c);
-      check_wf_clause(c);
 
-      matrix.insert(c);
+      // Invalid clauses are not added to matrix, but still occupy an ID
+      if (can( [&](){check_wf_clause(c);})) {
+        matrix.append(c);
+
+//         if (matrix.count(c)!=0) error("Duplicate clause in matrix! Already at position #" + matrix[c].str());
+//         matrix[c] = cur_mcid;
+
+//         clog<<"c INSERT "<<cur_mcid.str()<<": "<<str(c)<<endl;
+      } else {
+//         clog<<"c DROP "<<cur_mcid.str()<<": "<<str(c)<<endl;
+        // Dropped clause occupies an ID.
+        clauses.discard_last_clause(c);
+        matrix.append(cl_invalid);
+      }
 
     } catch (error_e &e) {
-      e.specify("Declaring matrix clause #" + cmap.end().str());
+      e.specify("Declaring matrix clause #" + next_id.str() + ": " + str(c));
       throw;
     }
   }
 
   void finish_clausedecl() {
     assert(phase==MDECL);
-    cend = cmap.end();
     phase=DONE;
   }
 
@@ -759,9 +830,17 @@ private:
   }
 
 private:
-  void check_initial(clause c);
-  void check_reduction(clause c, clause_id id1);
-  void check_resolution(clause c, clause_id id1, clause_id id2);
+
+  void register_clause(clause_id id, clause c) {
+    // Register clause
+    cmap.append_as(c,id);
+    seen_empty = seen_empty || clauses.is_empty(c);
+  }
+
+
+  void check_initial(clause_id idt, clause c);
+  void check_reduction(clause_id idt, clause c, clause_id id1);
+  void check_resolution(clause_id idt, clause c, clause_id id1, clause_id id2);
 
   bool is_clause_sat(clause c) {
     for (auto it=clauses.iter(c);it.hasnext();++it) {
@@ -833,83 +912,99 @@ inline size_t Clauses::Clause_Hash_Eq::operator() (const clause &c) const {
   return (1023 * sum + prod) ^ (31 * xxor);
 }
 
-inline bool Clauses::Clause_Hash_Eq::operator() (const clause &c1, const clause &c2) const {
-
-  auto i1 = clauses.iter(c1);
-  auto i2 = clauses.iter(c1);
+bool Clauses::clause_eq(const clause &c1, const clause &c2) const {
+  auto i1 = iter(c1);
+  auto i2 = iter(c2);
 
   while (true) {
     if (*i1 != *i2) return false;
-    if (!i1.hasnext()) return true;
+    if (!i1.hasnext()) { assert(*i1==lit_zero && *i2==lit_zero); return true;}
     ++i1; ++i2;
   }
 }
 
-void QBF_Main::check_proof(std::istream& in) {
 
-  in.exceptions(in.failbit|in.badbit);
+inline bool Clauses::Clause_Hash_Eq::operator() (const clause &c1, const clause &c2) const {
+  return clauses.clause_eq(c1,c2);
+//   auto i1 = clauses.iter(c1);
+//   auto i2 = clauses.iter(c2);
+//
+//   while (true) {
+//     if (*i1 != *i2) return false;
+//     if (!i1.hasnext()) { assert(*i1==lit_zero && *i2==lit_zero); return true;}
+//     ++i1; ++i2;
+//   }
+}
 
-  parse_ignore_comments(in);
-
-  parse_expect("r",in);
-  {
-    string ms; in>>ws>>ms;
-
-    if (ms=="sat") mode=CM_SAT;
-    else if (ms=="unsat") mode=CM_UNSAT;
-    else error("Unknown mode: r " + ms);
-  }
-
-  parse_expect("p",in); parse_expect("qrp",in);
-  { size_t x; in>>x>>x; }
-
-  parse_ignore_comments(in);
-
-  // Add matrix clauses as initial clauses to clause map
-// Disabled for now. But ultimately, we want implicit IDs for original clauses?
+// void QBF_Main::check_proof(std::istream& in) {
+//
+//   in.exceptions(in.failbit|in.badbit);
+//
+//   parse_ignore_comments(in);
+//
+//   parse_expect("r",in);
+//   {
+//     string ms; in>>ws>>ms;
+//
+//     if (ms=="sat") mode=CM_SAT;
+//     else if (ms=="unsat") mode=CM_UNSAT;
+//     else error("Unknown mode: r " + ms);
+//   }
+//
+//   if (mode == CM_UNSAT) cout<<"c Checking for UNSAT"<<endl;
+//   else if (mode == CM_SAT) cout<<"c Checking for SAT"<<endl;
+//
+//   parse_expect("p",in); parse_expect("qrp",in);
+//   { size_t x; in>>x>>x; }
+//
+//   parse_ignore_comments(in);
+//
+//   // Add matrix clauses as initial clauses to clause map
 //   if (mode == CM_UNSAT) {
+//     clog<<"c Adding matrix clauses"<<endl;
 //     for (auto it = matrix.begin();it!=matrix.end();++it) {
-//       cmap.append(*it);
+//       clog<<"ADD "<<it->second.str()<<": "<<str(it->first)<<endl;
+//       cmap.append_as(it->first,it->second);
 //     }
 //   }
-
-  // Init valuation used for initial cube checking
-  if (mode==CM_SAT) {
-    if (deferred_initial_checking) pval.init(n);
-    else val.init(n);
-  }
-
-  // Skip over quantifiers and comments (we do not even check them for consistency)
-  parse_ignore_comments(in);
-  while (!in.eof()) {
-    char c = in.peek();
-    if (!(c=='e' || c=='a')) break;
-    in.ignore(numeric_limits<streamsize>::max(), '\n');
-    parse_ignore_comments(in);
-  }
-
-
-  // Read steps
-
-  while (!in.eof()) {
-    check_proof_step(parse_proof_step(in));
-    parse_ignore_comments(in);
-  }
-
-
-  // Check any left-over deferred initial cubes
-  check_deferred_initial_cubes();
-
-
-  if (!seen_empty) error("Proof contains no empty clause/cube");
-
-
-  switch (mode) {
-    case CM_SAT: cout<<"s SAT"<<endl; break;
-    case CM_UNSAT: cout<<"s UNSAT"<<endl; break;
-  }
-
-}
+//
+//   // Init valuation used for initial cube checking
+//   if (mode==CM_SAT) {
+//     if (deferred_initial_checking) pval.init(n);
+//     else val.init(n);
+//   }
+//
+//   // Skip over quantifiers and comments (we do not even check them for consistency)
+//   parse_ignore_comments(in);
+//   while (!in.eof()) {
+//     char c = in.peek();
+//     if (!(c=='e' || c=='a')) break;
+//     in.ignore(numeric_limits<streamsize>::max(), '\n');
+//     parse_ignore_comments(in);
+//   }
+//
+//
+//   // Read steps
+//
+//   while (!in.eof()) {
+//     check_proof_step(parse_proof_step(in));
+//     parse_ignore_comments(in);
+//   }
+//
+//
+//   // Check any left-over deferred initial cubes
+//   check_deferred_initial_cubes();
+//
+//
+//   if (!seen_empty) error("Proof contains no empty clause/cube");
+//
+//
+//   switch (mode) {
+//     case CM_SAT: cout<<"s SAT"<<endl; break;
+//     case CM_UNSAT: cout<<"s UNSAT"<<endl; break;
+//   }
+//
+// }
 
 void QBF_Main::check_proof(MMFileParser& in) {
 
@@ -928,12 +1023,13 @@ void QBF_Main::check_proof(MMFileParser& in) {
   in.uint<size_t>(); in.uint<size_t>();
 
   // Add matrix clauses as initial clauses to clause map
-// Disabled for now. But ultimately, we want implicit IDs for original clauses?
-//   if (mode == CM_UNSAT) {
-//     for (auto it = matrix.begin();it!=matrix.end();++it) {
-//       cmap.append(*it);
-//     }
-//   }
+  if (mode == CM_UNSAT) {
+    for (auto it = matrix.begin();it!=matrix.end();++it) {
+      auto id=matrix.id_of(it);
+      auto id2 = cmap.append(*it);
+      assert(id == id2); // consistency check
+    }
+  }
 
   // Init valuation used for initial cube checking
   if (mode==CM_SAT) {
@@ -958,8 +1054,8 @@ void QBF_Main::check_proof(MMFileParser& in) {
     in.ws();
   }
 
-
-  // TODO: Check remaining initial cubes
+  // Check any left-over deferred initial cubes
+  check_deferred_initial_cubes();
 
 
   if (!seen_empty) error("Proof contains no empty clause/cube");
@@ -974,53 +1070,53 @@ void QBF_Main::check_proof(MMFileParser& in) {
 
 
 
-QBF_Main::proof_step QBF_Main::parse_proof_step(std::istream& in) {
-  proof_step r;
-
-  r.idt = parse_clause_id(in);
-  if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
-
-  r.c = clauses.parse_clause(in);
-
-  r.id1 = parse_clause_id(in);
-  if (r.id1.is_zero()) {r.kind=proof_step::INITIAL; goto finally; }
-  r.id2 = parse_clause_id(in);
-  if (r.id2.is_zero()) {r.kind=proof_step::REDUCTION; goto finally; }
-
-  if (parse_clause_id(in).is_zero()) {r.kind=proof_step::RESOLUTION; goto finally; }
-
-  error("Expected at most 2 ids for step");
-
-
-  finally:
-    parse_ignore_comments(in);
-    return r;
-
-}
-
-QBF_Main::proof_step QBF_Main::parse_proof_step(MMFileParser& in) {
-  proof_step r;
-
-  r.idt = parse_clause_id(in);
-  if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
-
-  r.c = clauses.parse_clause(in);
-
-  r.id1 = parse_clause_id(in);
-  if (r.id1.is_zero()) {r.kind=proof_step::INITIAL; goto finally; }
-  r.id2 = parse_clause_id(in);
-  if (r.id2.is_zero()) {r.kind=proof_step::REDUCTION; goto finally; }
-
-  if (parse_clause_id(in).is_zero()) {r.kind=proof_step::RESOLUTION; goto finally; }
-
-  error("Expected at most 2 ids for step");
-
-
-  finally:
-    in.ws();
-    return r;
-
-}
+// QBF_Main::proof_step QBF_Main::parse_proof_step(std::istream& in) {
+//   proof_step r;
+//
+//   r.idt = parse_clause_id(in);
+//   if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
+//
+//   r.c = clauses.parse_clause(in);
+//
+//   r.id1 = parse_clause_id(in);
+//   if (r.id1.is_zero()) {r.kind=proof_step::INITIAL; goto finally; }
+//   r.id2 = parse_clause_id(in);
+//   if (r.id2.is_zero()) {r.kind=proof_step::REDUCTION; goto finally; }
+//
+//   if (parse_clause_id(in).is_zero()) {r.kind=proof_step::RESOLUTION; goto finally; }
+//
+//   error("Expected at most 2 ids for step");
+//
+//
+//   finally:
+//     parse_ignore_comments(in);
+//     return r;
+//
+// }
+//
+// QBF_Main::proof_step QBF_Main::parse_proof_step(MMFileParser& in) {
+//   proof_step r;
+//
+//   r.idt = parse_clause_id(in);
+//   if (!r.idt.valid()) error("Invalid clause id: " + r.idt.str());
+//
+//   r.c = clauses.parse_clause(in);
+//
+//   r.id1 = parse_clause_id(in);
+//   if (r.id1.is_zero()) {r.kind=proof_step::INITIAL; goto finally; }
+//   r.id2 = parse_clause_id(in);
+//   if (r.id2.is_zero()) {r.kind=proof_step::REDUCTION; goto finally; }
+//
+//   if (parse_clause_id(in).is_zero()) {r.kind=proof_step::RESOLUTION; goto finally; }
+//
+//   error("Expected at most 2 ids for step");
+//
+//
+//   finally:
+//     in.ws();
+//     return r;
+//
+// }
 
 QBF_Main::proof_step QBF_Main::unsafe_parse_proof_step(MMFileParser& in) {
   proof_step r;
@@ -1053,22 +1149,19 @@ void QBF_Main::check_proof_step(QBF_Main::proof_step step) {
     //check_wf_clause(step.c);  done implicitly in check_xxx functions
 
     switch (step.kind) {
-      case proof_step::INITIAL: check_initial(step.c); break;
-      case proof_step::REDUCTION: check_reduction(step.c,step.id1); break;
-      case proof_step::RESOLUTION: check_resolution(step.c,step.id1,step.id2); break;
+      case proof_step::INITIAL: check_initial(step.idt,step.c); break;
+      case proof_step::REDUCTION: check_reduction(step.idt,step.c,step.id1); break;
+      case proof_step::RESOLUTION: check_resolution(step.idt,step.c,step.id1,step.id2); break;
     }
 
-    // Register clause
-    cmap.append_as(step.c,step.idt);
-
-    seen_empty = seen_empty || clauses.is_empty(step.c);
   } catch (error_e &e) {e.specify("Checking step " + step.idt.str()); throw; }
 
 }
 
-void QBF_Main::check_initial(clause c) {
+void QBF_Main::check_initial(clause_id idt, clause c) {
   switch (mode) {
     case CM_SAT:
+
       // Ensure that cube is valid (in range, ordered)
       check_wf_clause(c);
 
@@ -1089,16 +1182,22 @@ void QBF_Main::check_initial(clause c) {
   //       for (auto it=clauses.iter(c);it.hasnext();++it) val.reset(*it);
       }
 
+      register_clause(idt,c);
+
       break; // TODO: Initial cube checking with additional witnesses!
     case CM_UNSAT:
-      if (!is_initial_clause(c)) error("Initial clause not in formula: " + str(c));
+
+      clause cc = cmap.lookup(idt);
+      if (!clauses.clause_eq(c,cc)) error("Initial clause mismatch. #"+idt.str()+" in formula || in proof: " + str(cc) + " || " + str(c));
+
+      clauses.discard_last_clause(c);
 
       break;
 
   }
 }
 
-void QBF_Main::check_reduction(clause c, clause_id id1) {
+void QBF_Main::check_reduction(clause_id idt, clause c, clause_id id1) {
   clause c1 = cmap.lookup(id1);
 
   clause_iterator it = clauses.iter(c);
@@ -1134,9 +1233,12 @@ void QBF_Main::check_reduction(clause c, clause_id id1) {
   }
 
   if (max_nr > min_red) error("Illegal reduction of variable");
+
+  register_clause(idt,c);
+
 }
 
-void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {
+void QBF_Main::check_resolution(clause_id idt, clause c, clause_id id1, clause_id id2) {
 
   try {
 
@@ -1226,6 +1328,8 @@ void QBF_Main::check_resolution(clause c, clause_id id1, clause_id id2) {
 
         ++it;
       }
+
+      register_clause(idt,c);
     } catch (error_e &e) {e.specify("id1 = " + str(c1) + " AND id2 = " + str(c2)); throw;}
   } catch (error_e &e) {e.specify("Checking resolution " + str(c) + " <- " + id1.str() + ", " + id2.str()); throw;}
 
@@ -1251,8 +1355,18 @@ void Clauses::sort_clause(clause c) {
   auto end = begin;
   for (; *end != lit_zero; ++end) assert(end<store.end());
 
-
   std::sort(begin,end);
+
+  auto last = unique(begin,end);
+
+  *last=lit_zero;
+
+  // TODO: If de-duplication actually removed literals, this leaves some unused space!
+  // The alternative would be to erase, but then it only works for last clause:
+  //   assert(c==last_clause && end+1==store.end());
+  //   ++last;
+  //   store.erase(last,store.end());
+
 }
 
 void QBF_Main::check_wf_clause(clause c) {

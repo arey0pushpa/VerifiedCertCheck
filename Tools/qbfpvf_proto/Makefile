@@ -1,5 +1,5 @@
 CC=clang++
-CFLAGS=-Wall -std=c++2a -ldl -lboost_iostreams
+CFLAGS=-Wall -Wextra -std=c++2a -ldl -lboost_iostreams
 
 profile:clean
 	$(CC) $(CFLAGS) -g -lprofiler -O3 -o qbfpvf_proto main.cpp
