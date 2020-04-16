@@ -169,6 +169,13 @@ typedef struct {
   byte_t is_taut : 1;
 } Clause;
 
+/* Added Data Structure to have a Dynamic Array support */
+typedef struct {
+  int *array;
+  int used;
+  int size;
+} DArray;
+
 typedef struct {
   StepId id;  /* internal index */
   StepId idx; /* original index as given by input */
@@ -180,8 +187,8 @@ typedef struct {
   int s_level_unsat; /* scope level of innermost e var */
   char *lits;
   StepId ants[2];
-  byte_t cover_set : 1;     /* Added bit to mark the cover_set */
-  int witness_initial_cube; /* Witness of the initial cube */
+  byte_t cover_set : 1;        /* Added bit to mark the cover_set */
+  DArray witness_initial_cube; /* Witness of the initial cube */
 } Step;
 
 typedef struct {

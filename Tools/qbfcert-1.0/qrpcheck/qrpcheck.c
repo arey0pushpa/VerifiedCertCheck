@@ -19,8 +19,7 @@
 */
 
 /* ------- TODOS Ankit ----------------------------------------------
- * 1. Print the witness of the initial cube on stdout not on stderr.
- * 2. Test the inital cube witness on the Eval-2008 instances.
+ * 1. Test the inital cube witness on the Eval-2008 instances.
  * ----------------------------------------------------------------------*/
 
 #include "qrpcheck.h"
@@ -781,6 +780,33 @@ static unsigned int simplify_qcnf(StepId id) {
   return cnt_sat;
 }
 
+static void initArray(DArray *a, int initialSize) {
+  a->array = (int *)malloc(initialSize * sizeof(int));
+  a->used = 0;
+  a->size = initialSize;
+}
+
+static void insertArray(DArray *a, int element) {
+  if (a->used == a->size) {
+    a->size *= 2;
+    a->array = (int *)realloc(a->array, a->size * sizeof(int));
+  }
+  a->array[a->used++] = element;
+}
+
+static void copy_DArray(DArray *arr1, DArray *arr2) {
+  arr2->used = arr1->used;
+  arr2->size = arr1->size;
+  arr2->array = (malloc((arr1->used) * sizeof(int)));
+  memcpy(arr2->array, arr1->array, sizeof(arr2->used));
+}
+
+static void freeArray(DArray *a) {
+  free(a->array);
+  a->array = NULL;
+  a->used = a->size = 0;
+}
+
 static int check_initial_cubes(void) {
   int j, k, cnt_deleted;
   unsigned int i;
@@ -813,6 +839,8 @@ static int check_initial_cubes(void) {
     if (options.verbosity > 1) fprintf(stderr, " initialize PicoSAT\n");
     picosat_init();
     steps[tmp[0]].cover_set = 1;
+    DArray witness_icubes;
+    initArray(&witness_icubes, 2);  // initially 2 elements
 
     int witness_picosat[max_vidx + 1];
     memset(witness_picosat, 0, max_vidx + 1);
@@ -865,17 +893,20 @@ static int check_initial_cubes(void) {
       if (options.verbosity >= 1) fprintf(stderr, "FAILED (unsat)\n");
       return ERROR;
     } else if (result_picosat_call == PICOSAT_SATISFIABLE) {
+      // TODO: Avoid iterating over total number of variable
       for (StepId lit_idx = 1; lit_idx <= max_sidx; ++lit_idx) {
         if (witness_picosat[lit_idx] == 1) {
           sat_assgmt = picosat_deref(abs(lit));
           if (sat_assgmt > 0) {
-            steps[*tmp].witness_initial_cube = lit_idx;
+            insertArray(&witness_icubes, lit_idx);
           } else {
-            steps[*tmp].witness_initial_cube = lit_idx * -1;
+            insertArray(&witness_icubes, lit_idx * -1);
           }
         }
       }
+      copy_DArray(&witness_icubes, &steps[*tmp].witness_initial_cube);
     }
+    freeArray(&witness_icubes);
 
     if (options.verbosity >= 1) fprintf(stderr, "OK (non-covering set)\n");
 
@@ -1012,7 +1043,9 @@ PRINT_NONFREE_VARS:
       print_num(steps[steps[i].ants[j]].idx, 0);
     print_num(0, 0);
     if (steps[i].cover_set && options.check_icubes) {
-      print_num(steps[i].witness_initial_cube, 0);
+      for (j = 0; j < steps[i].witness_initial_cube.used; ++j) {
+        print_num(steps[i].witness_initial_cube.array[j], 0);
+      }
       print_num(0, 0);
     }
     if (print_num == &print_ascii_num) printf("\n");
