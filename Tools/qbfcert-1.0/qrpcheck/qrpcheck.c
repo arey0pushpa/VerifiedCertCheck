@@ -781,7 +781,7 @@ static unsigned int simplify_qcnf(StepId id) {
 }
 
 static void initArray(DArray *a, int initialSize) {
-  a->array = malloc(initialSize * sizeof(a->array));
+  a->array = malloc(initialSize * sizeof *a->array);
   a->used = 0;
   a->size = initialSize;
 }
@@ -789,7 +789,7 @@ static void initArray(DArray *a, int initialSize) {
 static void insertArray(DArray *a, int element) {
   if (a->used == a->size) {
     a->size *= 2;
-    a->array = realloc(a->array, a->size * sizeof(a->array));
+    a->array = realloc(a->array, a->size * sizeof *a->array);
   }
   a->array[a->used++] = element;
 }
@@ -797,8 +797,8 @@ static void insertArray(DArray *a, int element) {
 static void copy_DArray(DArray *arr1, DArray *arr2) {
   arr2->used = arr1->used;
   arr2->size = arr1->size;
-  arr2->array = (malloc((arr1->used) * sizeof(arr1->array)));
-  memcpy(arr2->array, arr1->array, arr2->used * sizeof(arr2->array));
+  arr2->array = (malloc((arr1->used) * sizeof *arr1->array));
+  memcpy(arr2->array, arr1->array, arr2->used * sizeof *arr2->array);
 }
 
 static void freeArray(DArray *a) {
