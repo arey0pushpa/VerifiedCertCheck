@@ -28,7 +28,7 @@ outputpath2 = './Traces/'
 suffix = '.trace'
 Path("./Traces").mkdir(parents=True, exist_ok=True)
 
-MAX_PROCESSES = 8
+MAX_PROCESSES = 7
 
 # Structure is Outputpath2
 async def process_csv(files, structure, dirpath, sem):

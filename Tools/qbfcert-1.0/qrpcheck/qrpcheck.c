@@ -798,7 +798,7 @@ static void copy_DArray(DArray *arr1, DArray *arr2) {
   arr2->used = arr1->used;
   arr2->size = arr1->size;
   arr2->array = (malloc((arr1->used) * sizeof(int)));
-  memcpy(arr2->array, arr1->array, sizeof(arr2->used));
+  memcpy(arr2->array, arr1->array, arr2->used * sizeof(int));
 }
 
 static void freeArray(DArray *a) {
