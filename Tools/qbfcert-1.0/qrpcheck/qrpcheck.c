@@ -795,10 +795,11 @@ static void insertArray(DArray *a, int element) {
 }
 
 static void copy_DArray(DArray *arr1, DArray *arr2) {
+  assert((arr1 != NULL) && (arr2 != NULL));
   arr2->used = arr1->used;
   arr2->size = arr1->size;
-  arr2->array = (malloc((arr1->used) * sizeof *arr1->array));
-  memcpy(arr2->array, arr1->array, arr2->used * sizeof *arr2->array);
+  arr2->array = malloc((arr1->used) * sizeof *arr1->array);
+  memcpy(arr2->array, arr1->array, arr2->used * sizeof *arr1->array);
 }
 
 static void freeArray(DArray *a) {
