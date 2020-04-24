@@ -3,7 +3,7 @@
 INSTDIR="$HOME/opt/qbf/CheckedInstances-Eval10"
 PROOFDIR="$HOME/opt/qbf/Proofs-Eval10"
 LOGDIR="/tmp"
-CHECK="./qbfpvf_proto"
+CHECK="./qbfpvf2"
 
 function check() {
   INST="$1"
