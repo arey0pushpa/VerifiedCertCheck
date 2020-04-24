@@ -1024,7 +1024,14 @@ PRINT_NONFREE_VARS:
 
     print_num(steps[i].idx, 0);
 
+    int lit_cnt = steps[i].num_lits;
     int cls_size = steps[i].num_lits;
+    assert(cls_size > 0);
+
+    if (steps[i].cover_set && options.check_icubes) {
+      cls_size += steps[i].witness_initial_cube.used;
+    }
+
     assert(cls_size >= 0);
     int proof_cls[cls_size];
     memset(proof_cls, 0, cls_size);
@@ -1034,6 +1041,13 @@ PRINT_NONFREE_VARS:
       read_literal_qrp(steps[i].lits);
       proof_cls[j] = neg ? -vars[vid].idx : vars[vid].idx;
     }
+
+    if (steps[i].cover_set && options.check_icubes) {
+      for (j = 0; j < steps[i].witness_initial_cube.used; ++j) {
+        proof_cls[lit_cnt + j] = steps[i].witness_initial_cube.array[j];
+      }
+    }
+
     qsort(proof_cls, cls_size, sizeof(int), compare);
     for (j = 0; j < cls_size; ++j) {
       print_num(proof_cls[j], 1);
@@ -1043,12 +1057,14 @@ PRINT_NONFREE_VARS:
     for (j = 0; j < steps[i].num_ants; j++)
       print_num(steps[steps[i].ants[j]].idx, 0);
     print_num(0, 0);
-    if (steps[i].cover_set && options.check_icubes) {
+
+    /* if (steps[i].cover_set && options.check_icubes) {
       for (j = 0; j < steps[i].witness_initial_cube.used; ++j) {
         print_num(steps[i].witness_initial_cube.array[j], 0);
       }
       print_num(0, 0);
-    }
+    } */
+
     if (print_num == &print_ascii_num) printf("\n");
   }
 }
