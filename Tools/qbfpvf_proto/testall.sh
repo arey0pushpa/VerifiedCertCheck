@@ -1,9 +1,9 @@
 #!/bin/bash
 
-INSTDIR="testdb/instances"
-PROOFDIR="$HOME/opt/qbf/proofs"
+INSTDIR="$HOME/opt/qbf/CheckedInstances-Eval10"
+PROOFDIR="$HOME/opt/qbf/Proofs-Eval10"
 LOGDIR="/tmp"
-CHECK="./qbfpvf_proto"
+CHECK="./qbfpvf2"
 
 function check() {
   INST="$1"
@@ -14,10 +14,11 @@ function check() {
 
   if test -f "$PROOF"; then
     echo -n "Checking $INST"
-    if $CHECK "$INST" "$PROOF" >"$LOG" 2>&1; then
+    if /usr/bin/time -f 'c TIMING %e s, %M kiB' $CHECK "$INST" "$PROOF" >"$LOG" 2>&1; then
       echo -ne "\033[1K\r"
       RES=$(grep '^s' $LOG)
-      echo "OK ($RES): $INST"
+      TIME=$(grep '^c TIMING' $LOG | sed -re 's/c TIMING//')
+      echo "OK ($RES) [$TIME]: $INST"
     else
       echo -ne "\033[1K\r"
       echo "ERROR: $INST ($LOG)"
