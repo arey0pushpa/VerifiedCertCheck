@@ -69,6 +69,23 @@ void log(string msg) {log(0,msg);}
 // void log(ostringstream const &msg) {log(0,msg);}
 
 
+string pretty_size(size_t s) {
+  char const *orders [] = {"B","KiB","MiB","GiB","TiB",nullptr};
+
+  size_t i=0;
+
+  while (s>1024 && orders[i+1]) {
+    s/=1024;
+    ++i;
+  }
+
+  return to_string(s)+orders[i];
+}
+
+template<typename T> string pretty_vector_stats(vector<T> const &v) {
+  return pretty_size(v.size()*sizeof(T)) + "("+ pretty_size(v.capacity()*sizeof(T)) +")";
+}
+
 
 
 // For internal use. Wrap into Variable or Literal as soon as possible!
@@ -563,6 +580,12 @@ public:
   }
 
 
+public:
+  static void print_stats() {
+    log("ClauseDB: " + pretty_vector_stats(db));
+  }
+
+
 
 };
 
@@ -637,6 +660,12 @@ public:
     return map[id];
   }
 
+public:
+  void print_stats(string name) {
+    log(name+": " + pretty_vector_stats(map));
+  }
+
+
 };
 
 
@@ -658,6 +687,12 @@ public:
 
 
   inline void set(Variable v, T x) {lookup(v)=x;}
+
+
+public:
+  void print_stats(string name) {
+    log(name+": " + pretty_vector_stats(map));
+  }
 
 };
 
@@ -788,6 +823,14 @@ public:
 
     fml_end = ClauseDB::get_checkpoint();
   }
+
+
+public:
+  void print_stats() {
+    quants.print_stats("quantifier map");
+    varpos.print_stats("varpos map");
+  }
+
 };
 
 
@@ -883,6 +926,10 @@ public:
     return cur_mask-1;
   }
 
+public:
+  void print_stats() {
+    log("Par-Valuation: " + pretty_size((2*n+1)*sizeof(mask_t)));
+  }
 
 };
 
@@ -942,6 +989,15 @@ private:
 
   // Initial cube checking (will only be initialized for SAT mode)
   ParValuation pval;
+
+public:
+  void print_stats() {
+    ClauseDB::print_stats();
+    formula.print_stats();
+    fml_clauses.print_stats("formula-id map");
+    prf_clauses.print_stats("proof-id map");
+    pval.print_stats();
+  }
 
 
 
@@ -1285,6 +1341,8 @@ int main(int argc, char **argv) {
     log("checking proof ("+chk.get_mode_str()+")");
     chk.do_check();
     log("done");
+
+    chk.print_stats();
 
     cout<<"s "<<chk.get_mode_str()<<endl;
     return 0;
