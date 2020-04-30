@@ -1,6 +1,6 @@
 #!/bin/bash
 DIMACS="$1"
-DEPQBF=~/opt/qbf/depqbf/depqbf
+DEPQBF=~/devel/depqbf_mod/depqbf
 DEPQBF_OPTIONS="--dep-man=simple --no-lazy-qpup --no-trivial-falsity --no-trivial-truth --no-dynamic-nenofex --no-qbce-dynamic"
 TRACEDIR=~/opt/qbf/ctraces
 
