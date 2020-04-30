@@ -1,21 +1,28 @@
 CC=clang++
-CFLAGS=-Wall -Wextra -std=c++2a -ldl -lboost_iostreams
+# CC=g++
 
-profile:
-	$(CC) $(CFLAGS) -g -lprofiler -O3 -o qbfpvf2 main2.cpp
+BASIC_CFLAGS= -std=c++17 -Wall -Wextra
+LIBS=-ldl -lboost_iostreams
 
-stable:
-	$(CC) $(CFLAGS) -D NDEBUG -O3 -o qbfpvf2 main2.cpp
+CFLAGS=$(BASIC_CFLAGS) -g -lprofiler -O3
+# CFLAGS=$(BASIC_CFLAGS) -g -D NDEBUG -lprofiler -O3
+# CFLAGS=$(BASIC_CFLAGS) -D NDEBUG -O3
+#CFLAGS=$(BASIC_CFLAGS) -g
+
+all: qbfpvf1 qbfpvf2 reduce verify
 
 
-profile1:
-	$(CC) $(CFLAGS) -g -lprofiler -O3 -o qbfpvf1 main.cpp
-profile_na1:
-	$(CC) $(CFLAGS) -D NDEBUG -g -lprofiler -O3 -o qbfpvf1 main.cpp
+qbfpvf1: main.cpp *.h
+	$(CC) $(CFLAGS) -o qbfpvf1 main.cpp $(LIBS)
 
-stable1:
-	$(CC) $(CFLAGS) -D NDEBUG -O3 -o qbfpvf1 main.cpp
-debug1:
-	$(CC) $(CFLAGS) -g -o qbfpvf1 main.cpp
-#clean:
-	#rm -vfr *~ qbfpvf_proto
+qbfpvf2: main2.cpp *.h
+	$(CC) $(CFLAGS) -o qbfpvf2 main2.cpp $(LIBS)
+
+reduce: reduce.cpp *.h
+	$(CC) $(CFLAGS) -o reduce reduce.cpp $(LIBS)
+
+verify: verify.cpp *.h
+	$(CC) $(CFLAGS) -o verify verify.cpp $(LIBS)
+
+clean:
+	rm -vfr qbfpvf_proto qbfpvf1 qbfpvf2 reduce verify
