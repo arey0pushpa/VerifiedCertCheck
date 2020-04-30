@@ -1,381 +1,7 @@
 // Second attempt ...
 
-#include <iostream>
-#include <fstream>
-#include <cassert>
-#include <vector>
-#include <unordered_set>
-#include <unordered_map>
-#include <algorithm>
-#include <boost/format.hpp>
-
-#define BOOST_STACKTRACE_USE_ADDR2LINE
-#include <boost/stacktrace.hpp>
-
-#include <boost/iostreams/device/mapped_file.hpp>
-
-
-using namespace std;
-
-class error_e : public exception {
-  string msg;
-
-public:
-  error_e() : msg("") {}
-  error_e(string _msg) : msg(_msg) {}
-
-  void specify(string m) {
-    if (msg != "") msg = m + " >> " + msg;
-  }
-
-  virtual const char *what() const throw() {
-    return msg.c_str();
-  };
-
-};
-
-
-[[noreturn]] void error(string msg) {
-//   cout<<"s ERROR "<<msg<<endl;
-//
-//   cerr<<boost::stacktrace::stacktrace()<<endl;
-//
-//   exit(1);
-
-  throw error_e(msg);
-
-}
-
-[[noreturn]] void error(boost::format fmt) {error (fmt.str());}
-
-template<typename T> bool can(T op) {
-  try { op(); return true; } catch (error_e &) {return false;}
-}
-
-
-int loglevel = 0;
-
-void log(int level, string msg) {
-  if (level<=loglevel) {
-    if (level==0) cout<<"c "<<msg<<endl;
-    else clog<<"c ("<<level<<") "<<msg<<endl;
-  }
-}
-
-void log(int level, ostringstream const &msg) {log(level,msg.str()); }
-
-void log(string msg) {log(0,msg);}
-// void log(ostringstream &msg) {log(0,msg);}
-// void log(ostringstream const &msg) {log(0,msg);}
-
-
-string pretty_size(size_t s) {
-  char const *orders [] = {"B","KiB","MiB","GiB","TiB",nullptr};
-
-  size_t i=0;
-
-  while (s>1024 && orders[i+1]) {
-    s/=1024;
-    ++i;
-  }
-
-  return to_string(s)+orders[i];
-}
-
-template<typename T> string pretty_vector_stats(vector<T> const &v) {
-  return pretty_size(v.size()*sizeof(T)) + "("+ pretty_size(v.capacity()*sizeof(T)) +")";
-}
-
-
-
-// For internal use. Wrap into Variable or Literal as soon as possible!
-typedef int32_t lit_int_t;
-typedef size_t id_int_t;
-
-static_assert(!numeric_limits<id_int_t>::is_signed,"");
-static_assert(numeric_limits<id_int_t>::max() > numeric_limits<lit_int_t>::max(),"");
-
-
-class Lexer;
-
-class MMap_Range {
-  friend Lexer;
-private:
-  // Range to be parsed
-  char const *begin = nullptr;
-  char const *end = nullptr;
-
-private:
-  boost::iostreams::mapped_file_source file;
-
-public:
-  MMap_Range(string fname) : file(fname) {
-    if (!file.is_open()) error("Error opening file '" + fname + "'"); // Is this check required?
-
-    begin = file.data();
-    end = file.data() + file.size();
-  }
-
-  ~MMap_Range() {
-    file.close();  // Is this required, or done automatically by destructor of file?
-  }
-
-};
-
-
-
-/*
- * Provides a stream of numbers, parsed from a range in memory.
- *
- * A lexer is constructed from a range, and, optionally, a position
- */
-class Lexer {
-private:
-  char const *begin = nullptr;  // Start of range (probably only needed for error message generation)
-  char const *cur = nullptr;    // Current character
-  char const *end = nullptr;    // End of range
-
-public:
-  string position_context() {
-    char const *b = cur-begin>50?cur-50:begin;
-    char const *e = end-cur>50?cur+50:end;
-
-    ostringstream res;
-    for (char const *i = b; i!=e; ++i) {
-      if (i==cur) res<<'|';
-      res<<*i;
-    }
-    return res.str();
-  }
-
-
-protected:
-
-  [[noreturn]] void error(string msg) {
-    size_t pos = end - cur;
-    ::error("Parser error at position: " + to_string(pos) + ": " + msg + " [context '" + position_context() + "']");
-  }
-
-
-private:
-  Lexer(Lexer const&) = delete;
-  Lexer &operator=(Lexer const&) = delete;
-
-
-public:
-  // A stored position. Together with the range, the lexer can be re-initialized from this data
-  class Position {
-    friend Lexer;
-
-  private:
-    char const *p;
-    inline Position(char const *_p) :p(_p) {}
-    inline operator char const *() const {return p;}
-    inline operator char const *&() {return p;}
-
-  public:
-    inline bool is_invalid() {return p==nullptr;}
-
-    static Position invalid;
-
-  };
-
-public:
-  inline Lexer(MMap_Range const &r) : begin(r.begin), cur(r.begin), end(r.end) { assert (begin <= end); }
-  inline Lexer(MMap_Range const &r, Position p) : begin(r.begin), cur(p), end(r.end) { assert (begin <= p && p <= end); }
-
-  inline Position get_pos() {return cur;}
-  inline void set_pos(Position pos) {cur=pos;}
-
-  // Primitives
-  inline bool is_eof() { assert(cur<=end); return cur==end;}
-  inline char peek() { if (is_eof()) error("unexpected EOF"); return *cur;}
-  inline char next() { if (is_eof()) error("unexpected EOF"); return *(cur++); }
-
-  // Derived
-  inline void expect(char c) { if (next() != c) error("Expected " + to_string(c)); }
-  inline void expect(string s) { for (char c : s) expect(c); }
-
-  inline string word() {
-    ostringstream res;
-    while (!is_eof()) {
-      char c = next();
-      if (is_whitespace(c)) break;
-      res<<c;
-    }
-
-    whitespace();
-    return res.str();
-  }
-
-  inline void keyword(string s) { if (word()!=s) error("Expected keyword '" + s + "'"); }
-
-  inline void rest_of_line() {
-    while (!is_eof() && next()!='\n');
-  }
-
-  static inline bool is_whitespace(char c) {
-    return (c==' ' || c=='\n' || c=='\t' || c=='\f');
-  }
-
-  // Eat at least one whitespace, or EOF
-  inline void whitespace1() {
-    if (is_eof()) return;
-
-    if (!is_whitespace(next())) error("Expected whitespace");
-    while (!is_eof() && is_whitespace(peek())) next();
-  }
-
-  inline void whitespace() {
-    if (is_eof()) return;
-    while (!is_eof() && is_whitespace(peek())) next();
-  }
-
-  // Eat whitespace and comments
-  inline void whitespace_cmt() {
-    while (!is_eof()) {
-      if (peek()=='c') {rest_of_line(); continue; }
-      if (is_whitespace(peek())) {next(); continue; }
-      break;
-    }
-  }
-
-
-  // Numbers
-  /*
-   * We provide to sets of parsers. The safe parsers will do overflow checks etc, to ensure that the input is syntactically correct.
-   * The unsafe parsers do no checks, their guarantee is: if there is a syntactically valid entity, it will be returned.
-   *  Otherwise, an arbitrary value may be returned. Note that both, safe and unsafe parsers, must never result in undefined behavior though!
-   *
-   * The rationale behind this is as follows: when parsing an input formula, we want to ensure that it is syntactically correct,
-   * to avoid confusion and ambiguity caused by claiming to have verified some property of a (syntactically malformed) formula.
-   * On the other hand, when parsing a proof, we can safely ignore syntax errors:
-   * Whenever our interpretation of the proof is a valid proof for the property of the formula, this is fine.
-   * Note that, most likely, syntax errors in the proof will result in the proof being rejected by the checker.
-   *
-   * We hope that omitting the unnecessary checks leads to faster parsing speed.
-   *
-   */
-
-
-  // Safe parsers. Use for parsing formulas.
-  inline unsigned char digit() {
-    char c = next();
-    if (c<'0' || c>'9') error(string("expected digit, but got '")+c+"'");
-    return c-'0';
-  }
-
-  inline id_int_t id_int() {
-    static_assert(!numeric_limits<id_int_t>::is_signed,"this impl depends on overflow not causing undef behaviour, i.e., on unsigned type!");
-
-    id_int_t cur=0;
-
-    if (peek() == '0') {
-      next();
-    } else {
-      do {
-        id_int_t last = cur;
-        cur = cur*10 + digit();
-        if (cur < last) error("integer overflow");
-      } while (!is_eof() && !is_whitespace(peek()));
-    }
-
-    whitespace1();
-
-    return cur;
-  }
-
-  inline size_t size_t_int() {
-    static_assert(is_same<size_t,id_int_t>(),"");
-    return id_int();
-  }
-
-  inline lit_int_t var_int() {
-    id_int_t res = id_int();
-    if (res > static_cast<id_int_t>(numeric_limits<lit_int_t>::max())) error("variable too big");
-    return res;
-  }
-
-  inline lit_int_t lit_int() {
-    lit_int_t sign=1;
-    if (peek()=='-') {next(); sign=-1; }
-    return sign*var_int();
-  }
-
-
-  // Unsafe parsers. Only minimal checks. Use for parsing proofs, as everything that convinces the checker is safe, be it syntactically correct or not!
-  inline unsigned char unsafe_digit() {
-    return (unsigned char)next() - '0';
-  }
-
-  inline id_int_t unsafe_id_int() {
-    static_assert(!numeric_limits<id_int_t>::is_signed,"this impl depends on overflow not causing undef behaviour, i.e., on unsigned type!");
-    id_int_t cur = 0;
-
-    if (peek() == '0') {
-      next();
-      whitespace1();
-    } else {
-      while (!is_eof()) {
-        char c=next();
-        if (is_whitespace(c)) break;
-        cur = cur * 10 + ((id_int_t)c-'0');
-      }
-      whitespace();
-   }
-
-    return cur;
-  }
-
-  inline lit_int_t unsafe_var_int() {
-    id_int_t res = unsafe_id_int();
-    return res; // "Implementation defined" behavior on overflow!
-  }
-
-  inline lit_int_t unsafe_lit_int() {
-    lit_int_t sign=1;
-    if (peek()=='-') {next(); sign=-1; }
-    return sign*unsafe_var_int(); // Overflow cannot occur (C++ guarantees minimum range -(2^(n-1)-1)..+(2^(n-1)-1). C++20 even assumed 2s complement repr. )
-  }
-
-
-  static void whitespace1_again(Position &p) {
-    while (is_whitespace(*(p++)));
-  }
-
-  /*
-   * Parses a literal from a position.
-   * Warning, this assumes that the safe or unsafe parser has already successfully parsed a
-   * literal at this position, and that every literal is part of a 0 terminated clause, otherwise the behavior will be undefined!
-   * Moreover, parsing beyond the terminating zero is not allowed.
-   *
-   * In detail, the assumption is that literals have no leading 0s, such
-   * that a 0 at the beginning indicates the terminator symbol. Thus, no EOF checks are required.
-   *
-   * Unless having parsed a 0, the position will be set to the start of the next literal, by skipping over whitespace.
-   */
-  static lit_int_t lit_int_again(Position &p) {
-    if (*p == '0') {++p; return 0;} // Terminal symbol. Do not attempt to skip over whitespace.
-
-    lit_int_t sign=1;
-    if (*p=='-') {++p; sign=-1; }
-
-    lit_int_t cur=0;
-
-    while (true) {
-      char c=*(p++);
-      if (is_whitespace(c)) break;
-      cur=cur*10 + (c-'0');
-    }
-
-    while (is_whitespace(*p)) ++p;
-
-    return cur;
-  }
-
-};
-
-Lexer::Position Lexer::Position::invalid = Lexer::Position(nullptr);
+#include "common.h"
+#include "lexer.h"
 
 
 
@@ -787,7 +413,7 @@ private:
       add_var(q,v);
     }
 
-    lx.whitespace_cmt();
+    lx.eol();
   }
 
   void parse_bindings(Lexer &lx) {
@@ -800,14 +426,14 @@ public:
 
     fml_begin=ClauseDB::get_checkpoint();
 
-    lx.whitespace_cmt();
+    lx.eol();
 
     log(2,"parsing dimacs header");
     // Header
     lx.keyword("p");lx.keyword("cnf");
     set_num_vars(lx.size_t_int());
     lx.size_t_int();
-    lx.whitespace_cmt();
+    lx.eol();
 
     log(2,"parsing dimacs var-bindings");
     // Bindings
@@ -817,7 +443,7 @@ public:
     // Matrix
     while (!lx.is_eof()) {
       auto c = ClauseDB::parse(lx,num_vars);
-      lx.whitespace_cmt();
+      lx.eol();
       if (idm) idm->add(c);
     }
 
@@ -850,7 +476,7 @@ private:
   static_assert(!numeric_limits<mask_t>::is_signed,"");
 
   static const size_t bit_width = sizeof(mask_t)*8;
-  static const mask_t max_mask = 1<<(bit_width-1);
+  static const mask_t max_mask = ((mask_t)1)<<(bit_width-1);
 
 private:
   mask_t cur_mask=1; // Bit that is currently added. 0 when full.
@@ -1006,7 +632,7 @@ public:
 
     log(1,"parsing proof header");
     // Parse header of proof
-    prf_lx.whitespace_cmt();
+    prf_lx.eol();
 
     prf_lx.keyword("r");
     {
@@ -1017,19 +643,19 @@ public:
     }
 
 
-    prf_lx.whitespace_cmt();
+    prf_lx.eol();
     prf_lx.keyword("p");
     prf_lx.keyword("qrp");
 
     size_t prf_num_vars = prf_lx.size_t_int();
     prf_lx.size_t_int();
-    prf_lx.whitespace_cmt();
+    prf_lx.eol();
 
     // Ignore quantifier decls in proof body
     while (!prf_lx.is_eof() && (prf_lx.peek()=='a' || prf_lx.peek()=='e')) {
       prf_lx.word();
       while (prf_lx.var_int() != 0);
-      prf_lx.whitespace_cmt();
+      prf_lx.eol();
     }
 
     // Now we are at beginning of proof body
@@ -1113,7 +739,7 @@ private:
     // Set flag if we just parsed the empty clause
     seen_empty = step_data.it.at_end();
 
-    prf_lx.whitespace_cmt();
+    prf_lx.eol();
   }
 
   void check_step() {
