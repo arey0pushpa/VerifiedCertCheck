@@ -2,6 +2,9 @@
 #include "lexer.h"
 
 
+bool cfg_gc = true; // Do garbage collection
+
+
 
 class Variable {
 private:
@@ -106,6 +109,16 @@ public:
   inline void print_stats(string name) {
     log(name+": " + pretty_vector_stats(map));
   }
+
+public:
+  typedef typename vector<V>::iterator iterator;
+  typedef typename vector<V>::const_iterator const_iterator;
+
+  iterator begin() {return map.begin();}
+  iterator end() {return map.end();}
+
+  const_iterator begin() const {return map.begin();}
+  const_iterator end() const {return map.end();}
 
 
 };
@@ -242,6 +255,11 @@ private:
 
   size_t db_max = 0;
 
+  size_t active_clauses = 0;  // Number of active clauses
+  size_t db_clauses = 0;      // Number of clauses in DB
+  size_t stat_num_gcs = 0;
+
+
 
 public:
   // Create clause
@@ -298,6 +316,9 @@ public:
     ClauseId res = idmap.define_next(Clause_Iterator(last_clause_start));
     last_clause_start = SIZE_MAX;
 
+    ++active_clauses;
+    ++db_clauses;
+
     return res;
   }
 
@@ -305,9 +326,18 @@ public:
 
   inline void remove(ClauseId cid) {
     idmap.remove(cid);
-    // TODO trigger garbage collection when too empty (e.g. more than half of the clauses deleted.
-    //    Counting literals (i.e. db storage space) may be more precise, but requires a num-literals field, or literal counting on removal)
-    //    Literal count of clause may be given as hint, as it will be known from previous resolution step anyway!
+
+    assert(active_clauses);
+    --active_clauses;
+
+    // Trigger garbage collection when too empty (e.g. more than half of the clauses deleted). Arbitrary threshold of 1000 to avoid frequent smallish GCs.
+    if (cfg_gc && db_clauses / 2 > active_clauses && db_clauses>1000) compact();
+
+    /* TODO
+     * Counting literals (i.e. db storage space) may be more precise, but requires a num-literals field, or literal counting on removal)
+     *  Literal count of clause may be given as hint, as it will be known from previous resolution step anyway!
+     */
+
   }
 
 
@@ -383,6 +413,60 @@ public:
   }
 
 
+private:
+  // Garbage collection
+  void compact() {
+    // Iterate over ID map
+    // Assume/assert clause positions are in ascending order
+    // Copy CDB backwards and adjust addresses
+
+    assert(active_clauses <= db_clauses);
+
+    size_t dsti = 0; // New current position in DB
+
+    // clog<<"GC "<<active_clauses<<" "<<db_clauses<<endl;
+
+#ifndef NDEBUG
+    size_t new_active = 0;
+#endif
+
+    for (auto it = idmap.begin(); it!=idmap.end(); ++it) {
+      if (it->is_valid()) {
+        size_t srci = (size_t)(*it);
+        size_t new_addr = dsti;
+
+        assert(srci >= dsti);
+
+        while (true) {
+          assert(srci < db.size());
+          Literal l=db[srci];
+          db[dsti]=l;
+          ++srci;
+          ++dsti;
+          if (!l.is_valid()) break;
+        }
+        *it = Clause_Iterator(new_addr);
+
+#ifndef NDEBUG
+        ++new_active;
+#endif
+      }
+    }
+
+    assert(new_active == active_clauses);
+    db_clauses = active_clauses;
+
+    assert(dsti<=db.size());
+    db.resize(dsti);
+    // db.shrink_to_fit(); // Currently, we don't free the memory, as it may be used by new clauses
+
+    ++stat_num_gcs;
+  }
+
+
+
+
+
 public:
   ClauseDB() {}
 
@@ -405,6 +489,8 @@ public:
     idmap.print_stats("id map");
 
     log("max clause db: " + pretty_size(db_max * sizeof(Literal)));
+
+    log("number of gcs: " + to_string(stat_num_gcs));
   }
 
 
