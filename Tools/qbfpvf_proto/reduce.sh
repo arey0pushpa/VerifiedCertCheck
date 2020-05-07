@@ -31,6 +31,10 @@ RESULT=$?
 
 echo "Return code: $RESULT">>"$LOGFILE"
 
+stat -c 'Trace size: %s' "$TRACE" >>"$LOGFILE"
+stat -c 'Proof size: %s' "$PROOF" >>"$LOGFILE"
+
+
 if test $RESULT -eq 0; then echo "REDUCED"
 else echo "Error return code: $RESULT"
 fi
