@@ -513,15 +513,15 @@ private:
   }
 
   inline void copy_clause(ostream &out) {
-    // For debugging only: sorting by abs(lit) TODO: remove
-    vector<lit_int_t> lits;
-    parse_clause([&](lit_int_t l){if (l) lits.push_back(l);});
-    std::sort(lits.begin(),lits.end(),[](auto a, auto b){ return (abs(a)<abs(b)); });
-    for (auto l : lits) out<<l<<" ";
-    out<<"0";
+//     // For debugging only: sorting by abs(lit) TODO: remove
+//     vector<lit_int_t> lits;
+//     parse_clause([&](lit_int_t l){if (l) lits.push_back(l);});
+//     std::sort(lits.begin(),lits.end(),[](auto a, auto b){ return (abs(a)<abs(b)); });
+//     for (auto l : lits) out<<l<<" ";
+//     out<<"0";
 
     // TODO: original code without sorting
-    // parse_clause([&](lit_int_t l){out<<l; if (l) out<<" ";});
+    parse_clause([&](lit_int_t l){out<<l; if (l) out<<" ";});
   }
 
   inline bool parse_step(id_int_t &id, id_int_t &id1, id_int_t &id2) {
