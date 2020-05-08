@@ -1,7 +1,9 @@
 #!/bin/bash
 DIMACS="$1"
-DEPQBF=~/devel/depqbf_mod/depqbf
-DEPQBF_OPTIONS="--dep-man=simple --no-lazy-qpup --no-trivial-falsity --no-trivial-truth --no-dynamic-nenofex --no-qbce-dynamic"
+DEPQBF=~/devel/depqbf_mod5/depqbf
+# DEPQBF_OPTIONS="--dep-man=simple --no-lazy-qpup --no-trivial-falsity --no-trivial-truth --no-dynamic-nenofex --no-qbce-dynamic"
+# DEPQBF_OPTIONS="--dep-man=simple --traditional-qcdcl --no-trivial-falsity --no-trivial-truth --no-dynamic-nenofex --no-qbce-dynamic"
+DEPQBF_OPTIONS="--dep-man=simple --no-lazy-qpup --no-qbce-dynamic"
 TRACEDIR=~/opt/qbf/ctraces
 
 TRACEFMT="compact"
@@ -53,6 +55,9 @@ echo "Log: $LOGFILE"
 RESULT=$?
 
 echo "Return code: $RESULT">>"$LOGFILE"
+
+stat -c 'Trace size: %s' "$TRACE" >>"$LOGFILE"
+
 
 if test $RESULT -eq 0; then echo "s UNSPEC"
 elif test $RESULT -eq 10; then echo "s SAT"
