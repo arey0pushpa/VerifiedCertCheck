@@ -20,11 +20,12 @@ rm -rf "$LOGFILE"
 
 COMMAND="./reduce $TRACE $PROOF"
 
-echo "Date $(date)" >>"$LOGFILE"
-echo "Machine $(uname -a)" >>"$LOGFILE"
-echo "Command $COMMAND" >>"$LOGFILE"
 echo "Log: $LOGFILE"
 
+echo "Date $(date)" >>"$LOGFILE"
+echo "Machine $(uname -a)" >>"$LOGFILE"
+
+echo "Command $COMMAND" >>"$LOGFILE"
 
 /usr/bin/time -a -o "$LOGFILE" -v $COMMAND 2>&1 | tee -a "$LOGFILE"
 RESULT=$?
