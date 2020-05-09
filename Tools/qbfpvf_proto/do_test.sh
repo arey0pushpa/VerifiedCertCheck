@@ -213,6 +213,8 @@ shift
 if $SOLVE && $VERIFY; then REDUCE=true; fi
 
 if $SOLVE; then solve; fi
-if $REDUCE; then reduce; fi
-if $VERIFY; then verify; fi
+if $REDUCE; then reduce; rm -rf "$TRACE"; fi
+if $VERIFY; then verify; rm -rf "$PROOF"; fi
+
+
 
