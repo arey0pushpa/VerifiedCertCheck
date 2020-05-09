@@ -1,4 +1,4 @@
-problem solve-user-time, solve-trace-size, reduce-user-time, reduce-proof-size, verify-user-time, verify-s
+problem, solve-user-time, solve-trace-size, reduce-user-time, reduce-proof-size, verify-user-time, verify-s
 Core1108_tbm_21.tex.module.000008, 40.22, 237459382, 4.60, 186248667, 5.39, SAT
 Core1108_tbm_21.tex.module.000030, 37.44, 225656950, 4.25, 170370649, 4.84, SAT
 Q_2-3_v-80-100_r-11.0, 57.28, 136428759, 0.88, 178699, 0.02, UNSAT

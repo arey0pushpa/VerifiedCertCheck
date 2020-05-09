@@ -27,7 +27,7 @@ egrep "User time|Trace size|Proof size|^s" "$LOGDIR"/*.log\
       END {
         n = split("solve-user-time solve-trace-size reduce-user-time reduce-proof-size verify-user-time verify-s",cats)
 
-        printf "problem "
+        printf "problem, "
         for (i=1;i<n;i++) printf "%s, ", cats[i];
         print cats[n]
 
