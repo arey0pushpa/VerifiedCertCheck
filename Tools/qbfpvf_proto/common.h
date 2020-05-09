@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <cassert>
 #include <vector>
@@ -9,8 +10,8 @@
 #include <algorithm>
 #include <boost/format.hpp>
 
-#define BOOST_STACKTRACE_USE_ADDR2LINE
-#include <boost/stacktrace.hpp>
+// #define BOOST_STACKTRACE_USE_ADDR2LINE
+// #include <boost/stacktrace.hpp>
 
 #include <boost/iostreams/device/mapped_file.hpp>
 
@@ -38,7 +39,7 @@ public:
 [[noreturn]] void error(string msg) {
 //   cout<<"s ERROR "<<msg<<endl;
 //
-   cerr<<boost::stacktrace::stacktrace()<<endl;
+//    cerr<<boost::stacktrace::stacktrace()<<endl;
 //
 //   exit(1);
 
