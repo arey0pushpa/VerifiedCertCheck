@@ -1026,7 +1026,7 @@ PRINT_NONFREE_VARS:
 
     int lit_cnt = steps[i].num_lits;
     int cls_size = steps[i].num_lits;
-    assert(cls_size > 0);
+    // assert(cls_size > 0); removed see if this is needed in the corner cases
 
     if (steps[i].cover_set && options.check_icubes) {
       cls_size += steps[i].witness_initial_cube.used;
