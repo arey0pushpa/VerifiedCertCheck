@@ -1032,7 +1032,7 @@ PRINT_NONFREE_VARS:
       cls_size += steps[i].witness_initial_cube.used;
     }
 
-    assert(cls_size >= 0);
+    assert(cls_size >= 0);  // Make sense??
     int proof_cls[cls_size];
     memset(proof_cls, 0, cls_size);
 
