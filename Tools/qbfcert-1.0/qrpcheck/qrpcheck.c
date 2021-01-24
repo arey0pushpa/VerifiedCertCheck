@@ -97,7 +97,7 @@ static byte_t *mark_occs = NULL;
 
 static QRPCOptions options = {.verbosity = 0,
                               .is_bqrp = 0,
-                              .print_proof = 1,
+                              .print_proof = 0,
                               .print_proof_only = 0,
                               .print_statistics = 0,
                               .check_icubes = 0};

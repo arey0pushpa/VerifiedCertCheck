@@ -1,0 +1,326 @@
+\documentclass[runningheads]{llncs}
+
+%\let\pf=\proof
+%\renewenvironment{proof}{\begin{pf}}{\qed\end{pf}}
+\usepackage{url}\urlstyle{rm}
+
+\RequirePackage{amsmath}
+\usepackage{algpseudocode}
+%\usepackage{algorithm}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{verbatim,amssymb,amsfonts,amscd,graphicx}
+\usepackage{bussproofs}
+\usepackage{color}
+%\usepackage[ruled,linesnumbered]{algorithm2e}
+\usepackage{times}
+\usepackage{placeins}
+\usepackage{thmtools}
+%\usepackage{enumitem}
+\usepackage[shortlabels]{enumitem} 
+\usepackage{cite}
+\usepackage{url}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage[justification=justified]{caption}
+
+%\newfloatcommand{capbtabbox}{table}[][\FBwidth]
+
+%\spnewtheorem{theorem}{Theorem}
+%\spnewtheorem{corollary}{Corollary}
+%\spnewtheorem{lemma}{Lemma}
+%\spnewtheorem{proposition}{Proposition}
+%\spnewtheorem{conjecture}{Conjecture} 
+%\spnewtheorem{question}{Question} 
+%\spnewtheorem{observation}{Observation}
+\spnewtheorem{plaindefinition}{Definition}{\bfseries}{\normalfont}
+
+% GENERAL MACROS
+\def\hy{\hbox{-}\nobreak\hskip0pt} \newcommand{\ellipsis}{$\dots$}
+\newcommand{\SB}{\{\,} \newcommand{\SM}{\;{:}\;} \newcommand{\SE}{\,\}}
+\newcommand{\Norm}[1]{\Vert #1 \Vert}
+\newcommand{\Card}[1]{|#1|}
+\newcommand{\red}{\color{red}}
+\newcommand{\blue}{\color{blue}}
+\renewcommand{\iff}{\Longleftrightarrow}
+
+% PAPER SPECIFIC MACROS
+\newcommand{\var}{\mathit{var}}
+\newcommand{\lit}{\mathsf{lit}}
+\newcommand{\fff}{\varphi}
+\newcommand{\matrixf}{\phi}
+\newcommand{\dom}{\mathit{dom}}
+\newcommand{\qp}{\mathcal{Q}}
+\newcommand{\qt}{\mathit{qtype}}
+\newcommand{\FFF}{\Phi}
+\newcommand{\GGG}{\Psi}
+\newcommand{\rightOf}{R}
+
+\newcommand{\0}{0}
+\newcommand{\1}{1}
+\usepackage{upgreek}
+
+\def\universals{U_\mathcal{Q}}
+\def\existentials{E_\mathcal{Q}}
+\def\qlvl{\mathsf{lev_\qp}}
+\def\mcount{\mathsf{ModelCount}}
+\def\outvar{\mathsf{OutermostVar}}
+\def\coveredbranch{\mathsf{SATSolver}}
+\def\ass{\mathsf{SATAssignment}}
+\def\iblock{\mathsf{IncrementalBlocking}}
+\def\pcount{\mathsf{CountSATPosBranches}}
+\def\ncount{\mathsf{CountSATNegBranches}}
+
+\usepackage{stackengine}
+\def\models{\mathsf{Models}}
+\def\qcert{\mathsf{QBFCert}}
+\def\comba{\mathsf{Combinatorial_1}}
+\def\combb{\mathsf{Combinatorial_2}}
+
+\newcommand{\Neg}[1]{\overline{#1}}
+\newcommand{\rd}[2]{#1[#2]}
+\newcommand{\rc}[2]{#1[#2]}
+\newcommand{\cc}[1]{Cl(#1)}
+\renewcommand{\P}{\mathcal{P}}
+
+% MACROS IMPORTED FROM THE OTHER PAPER ON SOUNDNESS OF Q(D)-RESOLUTION
+\newcommand{\Dtrv}{\normalfont \text{D}^{\text{\normalfont trv}}}
+\newcommand{\Dst}{\text{D}^{\text{\normalfont std}}}
+\newcommand{\Dres}{\text{D}^{\text{\normalfont res}}}
+\newcommand{\Resord}{<^{\text{\normalfont res}}}
+%\newcommand{\Drrs}{\text{\textnormal D}^{\text{\normalfont rrs}}}
+\newcommand{\Drrs}{{\normalfont \text{D}^{\text{{\normalfont rrs}}}}}
+\newcommand{\Dmat}{D^{\text{\normalfont mat}}}
+\newcommand{\Dtri}{D^{\text{\tiny $\triangle$}}}
+\newcommand{\Dtris}{D^{\text{\tiny $\triangle_s$}}}
+\newcommand{\AAA}{\mathcal{A}} \newcommand{\BBB}{\mathcal{B}}
+\newcommand{\CCC}{\mathcal{C}} \newcommand{\DDD}{\mathcal{D}}
+\newcommand{\LLL}{\mathcal{L}} 
+\newcommand{\HHH}{\mathcal{H}}
+\newcommand{\MMM}{\mathcal{M}} \newcommand{\PPP}{\mathcal{P}}
+\newcommand{\QQQ}{\mathcal{Q}}
+\newcommand{\SSS}{\mathcal{S}} \newcommand{\TTT}{\mathcal{T}}
+\newcommand{\VVV}{\mathcal{V}} \newcommand{\bigoh}{\mathcal{O}}
+
+\newcommand{\qrpcert}{\mathsf{QBFCert}}
+
+% QED AT THE END OF PROOFS
+\let\doendproof\endproof
+\renewcommand\endproof{~\hfill\qed\doendproof}
+
+% Additonal macros for the paper: added by Ankit
+\usepackage{xspace}
+\usepackage{upgreek}
+\usepackage{mathtools}
+\usepackage{todonotes}
+\usepackage{float,subcaption}
+\captionsetup{compatibility=false}
+\SetKwRepeat{Do}{do}{while}%
+
+\newcommand{\sff}[1]{{\normalfont \textsf{#1}}}
+\def\qbf{\sff{\#QBF}\xspace}
+\def\qbff{\textsf{\#QBF}\xspace}
+\def\pspace{\sff{\#PSPACE}\xspace}
+
+\usepackage{tikz}
+\usetikzlibrary{tikzmark,decorations.pathreplacing,arrows,shapes,positioning,shadows,trees,shapes.gates.logic.US,arrows.meta,shapes,automata,petri,calc}
+\usetikzlibrary{positioning}
+
+\newcommand{\highlight}[3]{
+	\pgfmathsetmacro{\innerlinewidth}{0.9 * #1}
+	\path [my box, opacity=0.2, line width = \innerlinewidth, draw = #2] #3;
+}
+
+\makeatletter
+\newcommand{\shorteq}{%
+	\settowidth{\@tempdima}{-}% Width of hyphen
+	\resizebox{\@tempdima}{\height}{=}%
+}
+\makeatother
+
+\def\Equal{$\,\texttt{:=}\,$}
+
+
+\definecolor{tgreen}{RGB}{179, 250, 179}
+\definecolor{tred}{RGB}{246, 34, 34}
+\tikzset{
+	my box/.style = {
+		, line cap = round
+		, line join = round
+	}
+}
+% ----------------- End of the macros
+
+
+%\usepackage{graphicx} : Already included 
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% If you use the hyperref package, please uncomment the following line
+% to display URLs in blue roman font according to Springer's eBook style:
+% \renewcommand\UrlFont{\color{blue}\rmfamily}
+
+\begin{document}
+%\raggedright
+%\pagestyle{empty}
+
+%
+\title{Verified QBF Certificate Checking}
+
+
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\author{Peter Lammich\inst{1} \and Ankit Shukla\inst{1}}
+%\orcidID{1111-2222-3333-4444}
+
+%\authorrunning{.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{University of Manchester, United Kingdom \and JKU, Linz, Austria \\
+\email{lammich@in.tum.de, ankit.shukla@jku.at}
+}
+%
+\maketitle              % typeset the header of the contribution
+%
+\begin{abstract} 
+ XXX
+
+\keywords{QBFs \and  Theorem proving \and Issabella}
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+XXX
+
+\section{Preliminaries}
+\label{sec:pre}
+
+We consider QBFs $\FFF = {\qp}.\matrixf$ in prenex conjunctive normal form (PCNF) where $\qp$ = $Q_{1} v_{1} \ldots Q_{n} v_{n}$ with $Q_{i} \in \{\forall, \exists \}$ and $\matrixf$ is a propositional formula represented as conjunction of clauses over the set of variables $V = \{v_{1}, \ldots, v_{n}\}$. We call $\qp$ the \textit{quantifier prefix} and $\matrixf$ the \textit{matrix} of the QBF $\Phi$. A clause is a disjunction of \textit{literals} and a literal is a variable $v$ or it's negation $\neg v$. We also write clauses as sets of literals. The \textit{complement} of a literal $l$ is denoted as $\overline{l}$, i.e. $\overline{v} = \neg v$, $\overline{\neg{v}} = v$. If $l = v$ or $l = \neg v$, $\var(l) = v$.
+
+The qunatifier prefix of a QBF is partitioned into subsequent different \textit{quantifier blocks}, each of which is a maximal subsequence $\exists x_{1} \ldots \exists x_{n}$ or $\forall y_{1} \ldots \forall y_{m}$. We denote the ith quantifier block by $\qp(i)$. For literal $l$, $\qlvl(l) = i$ if $\var(l) \in \qp(i)$. For literals $l, k$, it holds that $l <_\qp k$ if $\qlvl(l) = i$, $\qlvl(k) = j$, and $k < j$. If $\qp$ consists of $k$ quantifier blocks, i.e., $|\qp| = k$,  we call $\qp({k})$ the innermost quantifier block and $\qp({1})$ the outermost quantifier block. By $\universals$ and $\existentials$, we denote the set of universal and existential variables occurring in $\qp$. 
+
+An \textit{assignment} is a mapping of variables to boolean values $\1, \0$. We use a function $\sigma \colon V' \to \{\1, \0 \}$ to represent an assignment of variables $V^{\prime} \subseteq V$. If $V^{\prime} = V$ we call the assignment \emph{total}, otherwise we call it \emph{partial}. For a matrix $\matrixf$ and partial assignment $\sigma$, we write $\matrixf|_{\sigma}$ for the formula obtained after applying the partial assignment $\sigma$ to $\matrixf$, i.e., for every $v$ $\in$ $\sigma$ we replace all occurrences of $v$ in $\phi$ with $\sigma(v)$ and perform standard propositional simplifications.
+
+%We assume the standard QBF semantics. The semantics of a QBF is defined recursively: a QBF $\sexists x\qp.\matrixf$ is true if and only if $\qp.\matrixf|_{x=\1}$ or $\qp.\matrixf|_{x=\0}$ is true and a QBF $\forall y\qp.\matrixf$ is true if and only if both $\qp.\matrixf|_{y=\1}$ and $\qp.\matrixf|_{y=\0}$ are true.
+
+A closed PCNF formula is true if and only if there exists an assignment of truth values to the existential variables depending on the preceding universal variables in the quantifier prefix such that the matrix of the formula is true for all values of the universal variables.
+%
+
+
+\tikzstyle{block} = [draw, fill=blue!10, rectangle, rounded corners,
+minimum height=4em, minimum width=7em]
+\tikzstyle{block1} = [draw, fill=green!10, rectangle, rounded corners,
+minimum height=4em, minimum width=7em]
+\tikzstyle{block2} = [draw, fill=red!10, rectangle, rounded corners,
+minimum height=4em, minimum width=7em]
+\tikzstyle{bigblock} = [draw, fill=red!10, rectangle, rounded corners,
+minimum height=8em, minimum width=7em]
+\tikzstyle{smallblock1} = [draw, fill=brown!15, rectangle, rounded corners,
+minimum height=4em, minimum width=4em]
+\tikzstyle{sum} = [draw, fill=blue!20, circle, minimum size=2mm]
+\tikzstyle{sum1} = [draw, fill=blue!20, circle, minimum size=1mm]
+
+\tikzstyle{smallsum} = [draw, fill=blue!20, circle, minimum size=0.1mm]
+
+\tikzstyle{input} = [coordinate]
+\tikzstyle{output} = [coordinate]
+\tikzstyle{pinstyle} = [pin edge={to-,thick,red}]
+\tikzstyle{snakeline} = [connector, decorate, decoration={pre length=0.2cm,
+	post length=0.2cm, snake, amplitude=.4mm,
+	segment length=2mm},thick, magenta, ->]
+
+\tikzstyle{pre}=[<-,shorten <=1pt,>=stealth’,semithick]
+\tikzstyle{post}=[->,shorten >=1pt,>=stealth’,semithick]
+
+\begin{figure}	
+	 \centering
+	\begin{subfigure}[t]{0.5\textwidth}
+		\centering
+\begin{tikzpicture}[auto, node distance=2.0cm,>=latex', font = \sffamily, every text node part/.style={align=center}]
+
+\node [block, name=input] (controller) {DepQBF};
+\node [block2, name=input,below of=controller] (prop) {QRPCert};  
+pin={[pinstyle]above:}
+
+\node [sum, above of=controller, node distance=1.2cm] (system) {};
+\node [right of=prop, node distance=2.6cm] (skolemf) {$f$};
+	    
+\draw [->,semithick] (system) -- node[name=w] {\textsf{QBF $\FFF$}} (controller);
+
+\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {trace} (prop);
+
+\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop) -- node[name=u] {Skolem} (skolemf);
+
+\end{tikzpicture}
+		\caption{Skolem extraction; no pre-processing}
+	\end{subfigure}%
+	\begin{subfigure}[t]{0.5\textwidth}
+		\centering
+\begin{tikzpicture}[auto, node distance=1.5cm,>=latex', font = \sffamily, every text node part/.style={align=center}]
+
+\node [block, name=input] (controller) {Bloqqer \\ (preprocc.)};
+
+
+\node [sum, above of=controller, node distance=1.5cm] (system) {};
+\draw [->,semithick] (system) -- node[name=w] {\textsf{QBF $\FFF$}} (controller);
+% \node [smallsum, below of=controller, node distance=3.2cm] (sat) {};
+\node [output, right of=controller, node distance=3.2cm] (unsat) {};    
+\node [block1, right of=controller, node distance=3.7cm] (system) {QRATtrim};
+\node [right of=system, node distance=2.4cm] (skolemf) {$f$};
+
+\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {\textsf{SAT?}} (system);
+
+\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (system) -- node[name=u] {Skolem} (skolemf);
+
+\end{tikzpicture}
+	\caption{Completely solved by pre-processing}
+\end{subfigure}
+
+\begin{subfigure}[t]{0.5\textwidth}
+			\centering
+	\begin{tikzpicture}[auto, node distance=1.8cm,>=latex', font = \sffamily, every text node part/.style={align=center}]
+	
+	\node [block, name=input] (controller) {Bloqqer \\ (preprocc.)};
+	\node [block, name=input,below of=controller] (prop1) {DepQBF};
+	\node [block2, name=input, below of=prop1] (prop) {QRPCert};  
+		
+	\node [sum, above of=controller, node distance=1.5cm] (system) {};
+	\draw [->,semithick] (system) -- node[name=w] {\textsf{QBF $\FFF$}} (controller);
+	 \node [right of=prop, node distance=2.8cm] (skolem) {$f^{\prime\prime}$};
+	\node [output, right of=controller, node distance=3.2cm] (unsat) {};    
+	\node [block1, left of=controller, node distance=3.8cm] (system) {QRATtrim};
+	\node [block1, right of=controller, node distance=4cm] (system2) {sk-extract};
+    \node [below of=system2, node distance=1.8cm] (skolem1) {$f^{\prime}$};
+	\node [block2, name=input, right of=skolem] (prop4) {Extract};  
+	\node [right of=prop4, node distance=1.8cm] (skolemf) {$f$};
+	\node [below of=system, node distance=1.8cm] (skolemf2) {$f$};
+		
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {\textsf{SAT?}} (system);
+	
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop1) -- node[right] {trace} (prop);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {QBF $\FFF^{\prime}$} (prop1);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop) -- node[name=u] {\textsf{Skolem}} (skolem);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (system2) -- node[name=u] {\textsf{Skolem}} (skolem1);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (skolem) -- node[name=u] {} (prop4);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (skolem1) -- node[name=u] {} (prop4);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop4) -- node[name=u] {} (skolemf);  
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (system) -- node[name=u] {} (skolemf2);  
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {QRAT trace} (system2);
+	\end{tikzpicture}
+		\caption{Pre-processing with QBF solving}
+\end{subfigure}
+\caption{The complete architecture of the tool chain. XXX}\label{fig:tool}
+\end{figure}
+
+\bibliographystyle{splncs04}
+\bibliography{literature}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
