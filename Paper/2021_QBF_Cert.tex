@@ -105,6 +105,8 @@
 \newcommand{\SSS}{\mathcal{S}} \newcommand{\TTT}{\mathcal{T}}
 \newcommand{\VVV}{\mathcal{V}} \newcommand{\bigoh}{\mathcal{O}}
 
+\def\faexp{$\forall$\textsf{Exp-Res}\xspace}
+
 % QED AT THE END OF PROOFS
 \let\doendproof\endproof
 \renewcommand\endproof{~\hfill\qed\doendproof}
@@ -181,7 +183,7 @@
 % If there are more than two authors, 'et al.' is used.
 %
 \institute{University of Manchester, United Kingdom \and JKU, Linz, Austria \\
-\email{lammich@in.tum.de, ankit.shukla@jku.at}
+\email{peter.lammich@manchester.ac.uk, ankit.shukla@jku.at}
 }
 %
 \maketitle              % typeset the header of the contribution
@@ -189,39 +191,40 @@
 \begin{abstract} 
  XXX
 
-\keywords{QBFs \and  Theorem proving \and Issabella}
+\keywords{QBFs \and  Theorem proving \and Isabelle}
 \end{abstract}
 
 \section{Introduction}
 \label{sec:intro}
-Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers over the propositional variables. The use of quantifiers provides more succinct encoding of problems than with just propositional variables. For example QBF encoding of Bounded model checking (BMC) problem \cite{DershowitzHK05} can be exponentially more compact than corresponding propositional encoding. However, this comes with a price, QBFs are much more difficult to solve than propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71} whereas, the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. QBF is a powerful host language for many application domains in automated reasoning and artificial intelligence, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13} and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}.
+Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers. The use of quantifiers provides a more succinct encoding of problems than with just propositional variables. For example, the QBF encoding of Bounded model checking (BMC) \cite{DershowitzHK05} can be exponentially more compact than the corresponding propositional one. However, this comes with a price QBFs is much more difficult to solve than the propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71}, whereas the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. QBF is a powerful host language for many application domains in automated reasoning and artificial intelligence \cite{ShuklaBPS19}, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13}, and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}. 
 
-For many of the applications of QBFs, finding whether QBF is \textit{true} or \textit{false} is not enough and sometimes worthless. For instance, in BMC, if the safety property is violated, the tool should provide a counter-example. Therefore, in addition to bare yes/no answers, a QBF solver must provide \textit{certificates} to construct the counter-examples. In comparison to SAT, the QBF technology is still in the early stages of it's development, and the solvers are relatively more error-prone. To establish the trust in the correctness of a QBF solver certificates are a must. Most of the modern QBF solvers in addition to solve the satisfiability problem of the formula produce certificates \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17}. The most general format of the certificate is a set of Skolem (Herbrand) functions representing a model for a true (false) QBF. 
+For many of the applications of QBFs, finding whether QBF is \textit{true} or \textit{false} is not enough and sometimes worthless. For instance, in BMC, if the safety property is violated, the tool should provide a counter-example. Therefore, in addition to bare yes/no answers, a QBF solver must provide \textit{certificates} to construct the counter-examples. QBF technology is still in the early stages of its development, and the solvers are relatively more error-prone. To establish trust in the correctness of QBF solvers certificates are a must. Most of the modern QBF solvers produce certificates \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17}. The most general format of the certificate is a set of Skolem (Herbrand) functions representing a model for a true (false) QBF. 
 A complete certification process will ensure the correctness of the solver's result and enables reasoning tasks that require a witness. 
 %For example, similar to SAT competitions, validate the results of QBF solvers in the QBF competitions, replacing the current practice of just relying on the majority votes. 
 
-We address two of the major bottlenecks in the adoption of the certificate extraction process. First, provide complete confidence in the result of the solver. Second, generate and verify the certificates with a marginal overhead to the solving time. 
-We present an approach of a formally verified certificate generation and checking to ensure complete trust in the result of the solver and the generated Skolem functions. The certification validation process poses an additional overhead over the verification process, for example, the resolution based QBF solver DepQBF \cite{LonsingB10} takes as much time to generate and validate the Skolem function as it takes to solve the original instance. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12}, where the generated Skolem function is checked against the original formula for correctness using a SAT solver. In \cite{NiemetzPLSB12} more than 77\% of the certification time is spent to validate the certificate. Our approach eliminates the use of the explicit validation process (SAT solver call) and verify the certificates with a marginal overhead. We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}; our approach can be adopted for other QBF solving techniques.
+We address two of the bottlenecks in the adoption of the certificate extraction process. First, provide complete confidence in the result of the solver. Second, generate and verify the certificates with a marginal overhead to the solving time. 
+
+We present an approach of a formally verified certificate generation and checking to ensure complete trust in the result of the solver and the generated Skolem functions. The certification validation process poses an additional overhead over the verification process, for example, the resolution based QBF solver DepQBF \cite{LonsingB10} takes as much time to generate and validate the Skolem function as it takes to solve the original instance. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12}, where the generated Skolem function is checked against the original formula for correctness using a SAT solver. In \cite{NiemetzPLSB12} more than 77\% of the certification time is spent to validate the certificate. Our approach eliminates the use of the explicit validation process (SAT solver call) and verifies the certificates with a marginal overhead. We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}; our approach can be adopted for other QBF solving techniques \cite{RabeT15}.
 
 Formal verification (automated/interactive theorem proving) approach \cite{Fleury2018a, Fleury2019a, BlanchetteFLW18} and verified certificate checking \cite{Cruz2017, Cruz2017b, Heule2017a, Lammich17} is used recently in SAT solving. This approach provides guaranteed confidence in the result of the solver and has revealed critical bugs \cite{Lammich17} in unverified tools. 
 
-To our best knowledge, this is the first application of the verified approach in QBFs. We hope the approach developed in this paper will generate more interest in automated verification of QBFs and lead us closer to the adoption of efficient verified certification checking with minimal overhead. \\
+To best of our knowledge, this is the first application of the verified approach in QBFs. We hope the approach developed in this paper will generate more interest in automated verification of QBFs and lead us closer to the adoption of efficient verified certification checking with minimal overhead. \\
  
  
 \textbf{DepQBF Use Cases}: 
-Following are the examples that require DepQBF with function synthesis and simple yes/no answer is not enough:
- 
+Following are the examples that require DepQBF with function synthesis and a simple yes/no answer is not enough:
 \begin{enumerate}
- 	\item In BMC or reachability analysis \cite{BloemKS14}, if the safety property is violated, the tool should provide a counter-example. 
+	\item In BMC or reachability analysis \cite{BloemKS14}, if the safety property is violated, the tool should provide a counter-example. 
+	
+	\item Planning as Quantified Boolean Formula \cite{Cashmore2012planning, EglyKLP17, Gasquet18}. The strategy for the outermost existential variable corresponds to a plan. 
+	\item In hardware circuit synthesis \cite{BloemEKKL14, BloemKS14, Faymonville2017, Subramanyan2013, Li2013} it's not enough to know if there exists an implementation. A strategy is required, to construct a circuit that implements a black box. In \cite{Subramanyan2013, Li2013} the problem is modeled as a 2QBF. Synthesizing optimal switching lattices \cite{Gange2014synthesizing}: the problem is encoded as 2QBF. 
+	\item Firewalls verification and synthesis \cite{Zhang2012verification}. The problem was encoded as 2QBF. Synthesized assignment amounts to the definition of rules of the firewall.
+	\item Biological networks synthesis \cite{GuptaMS18}; completion of the network and predicting activities of the molecules with incomplete information requires Skolem function to be synthesized to develop wet experiments in laboratories.  
  	
- 	\item Planning as Quantified Boolean Formula \cite{Cashmore2012planning, EglyKLP17, Gasquet18}. The strategy for the outermost existential variable corresponds to a plan. 
- 	\item In hardware circuit synthesis \cite{BloemEKKL14, BloemKS14, Faymonville2017, Subramanyan2013, Li2013} it's not enough to know if there exist an implementation. A strategy is required, to construct a circuit that implements a blackbox. In \cite{Subramanyan2013, Li2013} the problem is modeled as a 2QBF. Synthesizing optimal switching lattices \cite{Gange2014synthesizing}: problem is encoded as 2QBF. 
- 	\item Firewalls verification and synthesis \cite{Zhang2012verification}. The problem was encoded as 2QBF. Synthesized assignment amounts to the definition of rules of the firewall.
- 	\item Biological networks synthesis \cite{GuptaMS18}; completion of the network and predicting activities of the molecules with incomplete information requires Skolem function to be synthesized to develop wet experiments in laboratories.  
+ 	XXX
 \end{enumerate}
 
 \textbf{Other Use Cases} (Yes/No answer is sufficient):
-
 \begin{enumerate}
     \item Cryptography: DepQBF solver was used to verify whether the precondition holds in a secure multiparty computation \cite{Launchbury2014application}. 
 	\item Application to AI (argumentation frameworks): abstract dialectical frameworks \cite{Brewka2020solving, Diller2014reasoning}. ADF is compiled to a QBF and solved using DepQBF.
@@ -240,14 +243,15 @@ An \textit{assignment} is a mapping of variables to boolean values $\1, \0$. We 
 A closed PCNF formula is true if and only if there exists an assignment of truth values to the existential variables depending on the preceding universal variables in the quantifier prefix such that the matrix of the formula is true for all values of the universal variables.
 %
 
-QBF satisfiability can be understood as a two players zero sum game. There are two players in the game: the existential player; owns the existentially quantified variables, and the universal player, owns the universally quantified variables. A single round of play is as follows: step through the variable in the quantifier prefix, the player who owns it assigns it a value. The existential player wins a round of the game if the constructed assignment satisfies all clauses in the matrix, otherwise the universal player wins. A QBF is true if and only if the existential player has a winning strategy that allows him to win irrespective how the universal player plays. A QBF is false if and only if the universal player has a winning strategy. 
-%Thus, a strategy for the universal player, and a proof that it is a winning strategy, is a proof that the QBF is false.
-
+QBF satisfiability can be understood as a two players zero-sum game. There are two players in the game: the existential player; owns the existentially quantified variables, and the universal player, who owns the universally quantified variables. A single round of play is as follows: step through the variable in the quantifier prefix, the player who owns it assigns it a value. The existential player wins a round of the game if the constructed assignment satisfies all clauses in the matrix, otherwise, the universal player wins. A QBF is true if and only if the existential player has a winning strategy that allows him to win irrespective of how the universal player plays. A QBF is false if and only if the universal player has a winning strategy. 
+%Thus, a strategy for the universal player, and a proof that it is a winning strategy, is a proof that the QBF is false. 
 XXX
-
 \section{Related Work} \label{sec:related-work}
+XXX
+\subsection{Extracting Skolem Functions without Preprocessing} \label{subsec:skolem-nopre}
+A complete framework for generating QBF certificates from resolution proofs obtained by the QBF solver DepQBF was presented in \cite{NiemetzPLSB12}. The tool $\qrpcert$ extracts the Skolem functions \cite{BalabanovJ11} from the Q-Resolution trace produced by DepQBF solver. The Skolem functions are represented as circuits (AIGs). The certificate validation is performed by first translating the input formula into an AIG  and merging it with the certificate. Then the resulting AIG is translated into a CNF and the SAT solver is used to check the validity of the CNF. Figure \ref{fig:tool} (a) shows the overview of the tool. 
 
-A complete framework for generating QBF certificates from resolution proofs obtained by the QBF solver DepQBF was presented in \cite{NiemetzPLSB12}. The tool $\qrpcert$ extracts the Skolem function \cite{BalabanovJ11} from the Q-Resolution trace produced by DepQBF solver. The Skolem function is represented as AIGs. Certificate validation is performed by first translating the input formula into an AIG  and merging it with the certificate. Then the resulting AIG is translated into a CNF and use a SAT solver to check the validity. Figure \ref{fig:tool} (a) shows the overview of the tool. $\qrpcert$ does not support the advance dependency scheme used by DepQBF and the certificate validation is the most expensive step of the tool-chain.  
+$\qrpcert$ does not support the advance dependency schemes used by DepQBF and the certificate validation (takes nearly 80 percent of the time) is the most expensive step of the tool-chain.  
  
 \tikzstyle{block} = [draw, fill=red!10, rectangle, rounded corners,
 minimum height=4em, minimum width=7em]
@@ -323,18 +327,21 @@ pin={[pinstyle]above:}
 \caption{Skolem function extraction without and with- preprocessing. Herbrand function can be extracted by $\qrpcert$ (a) but not supported by QRATtrim (b)}\label{fig:tool}
 \end{figure}
 
-Generally, QBF instance is first passed through a preprocessor to simplify the original instance. The original instance is rewritten to an equi-satisfiable formula which is then passed to the QBF solver. To handle the preprocessing techniques quantified resolution asymmetric tautology (QRAT) proof system was introduced in \cite{HeuleSB14a}. QRAT is a framework that allows verification of all preprocessing techniques for QBFs with three simple rules \cite{HeuleSB14a}. The implementation integrate QRAT-based tracing to the pre-processor $\bloqqer$ \cite{Biere2011} and present an efficient QRAT proof checker $\qtrim$.
+\subsection{Extracting Skolem Functions for Completely Solved Instances by Preprocessing} \label{subsec:skolem-pre}
+
+Generally, the QBF instance is first passed through a preprocessor to simplify the original instance. The original instance is rewritten to an equi-satisfiable formula and passed to a QBF solver. \cite{HeuleSB14a} introduced a quantified resolution asymmetric tautology (QRAT) proof system. QRAT is a framework that allows verification of all QBF preprocessing techniques with just three simple rules \cite{HeuleSB14a}. The implementation integrates QRAT-based tracing to the pre-processor $\bloqqer$ \cite{Biere2011} and present an efficient QRAT proof checker $\qtrim$.
 In the subsequent work, \cite{HeuleSB14}, the authors extend the capabilities of $\qtrim$ to extract and validate the Skolem function from a completely solved instance after the pre-processing (by $\bloqqer$). 
 %The validation of Skolem functions checks the dependencies and computes whether the Skolem functions imply the formula using the SAT solver is performed by a tool $\cheskol$.
 Figure \ref{fig:tool} (b) show the architecture of the tool.
-The main drawback of the approach is that it supports \textbf{only Skolem functions extraction} from formulas which are solved by the preprocessor. Skolem functions consider only deleted clauses of a proof whereas Herbrand functions consider both newly introduced clauses and updated clauses. Reason? May be : A clause addition step may even introduce new variables. XXX
+
+The main drawback of the approach is: it supports \textbf{only Skolem functions extraction} from formulas that are solved by the preprocessor. There is no support for Herbrand function extraction from the solved instances. Skolem functions consider only deleted clauses of proof whereas, Herbrand functions consider both newly introduced clauses and updated clauses. Reason? Maybe: A clause addition step can introduce new variables. XXX
 
 
-The work \cite{FazekasHSB17} combines the partial Skolem function extracted from the QRAT trace and combine it with the Skolem function extracted by $\qcert$ of the pre-processed formula. The approach obtain Skolem functions with
-all preprocessing techniques implemented in  $\bloqqer$ and allow the combination of $\bloqqer$ with any Skolem function producing solver. The approach is used to the extraction only Skolem functions and support for the Herbrand function extraction is left as a future work.
+\subsection{Reconstruct the Skolem Functions for the Original Formula} \label{subsec:skolem-compete}
+
+The work \cite{FazekasHSB17} combines the partial Skolem function extracted from the QRAT trace and the Skolem function (by $\qcert$) of the pre-processed formula. The approach obtains Skolem functions with all preprocessing techniques implemented in  $\bloqqer$ and allows the combination of $\bloqqer$ with any Skolem function producing solver. The approach support Skolem functions extraction, and there is no support for the Herbrand functions.
 
 A similar approach to  \cite{FazekasHSB17} was developed in \cite{JanotaGM13} to obtain Skolem functions for a subset of the preprocessing techniques implemented in $\bloqqer$ by solution reconstruction rule for each of the supported preprocessing technique.
-
 
 
 \begin{figure}[t]
@@ -371,7 +378,15 @@ A similar approach to  \cite{FazekasHSB17} was developed in \cite{JanotaGM13} to
 	\caption{Tool chain of sk-extract. Skolem function can be extracted for Pre-processing combined with the QBF solving. No support for Herbrand function.}
 \end{figure}
 
+
+\vspace{0.2cm}
 \noindent\textbf{News}:  QBF proof checking format QRAT cannot have polynomial time strategy extraction unless P = PSPACE \cite{ChewC20}.
+
+\vspace{0.3cm}
+\noindent\textbf{CAQE}: A Certifying QBF Solver \cite{RabeT15} (the winner of QBFEVAL competition) uses a counter-example guided abstraction refinement (CEGAR)-based algorithm. The algorithm decompose QBFs into a sequence of propositional formulas, which are called \textit{clausal abstraction} XXX (ADD EXAMPLE). The proof system looks like \faexp (Check!).
+
+The certification process is similar to $\qrpcert$, a two-step approach: generate a clausal abstraction proof (CAP) and build an AIG representing the Skolem or Herbrand function. The certificate validation process substitutes the generated Skolem (Herbrand) functions for the corresponding variable in the matrix and then query a SAT solver.
+
 \section{Program Verification with Isabelle/HOL} \label{sec:Isabelle}
 
 XXX
