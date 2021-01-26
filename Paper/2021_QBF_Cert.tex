@@ -22,7 +22,11 @@
 \usepackage{lmodern}
 \usepackage{booktabs}
 \usepackage[justification=justified]{caption}
+\newcommand{\qrpcert}{\mathsf{QBFCert}}
+\newcommand{\qtrim}{\mathsf{QRATtrim}}
 
+\newcommand{\bloqqer}{\mathsf{Bloqqer}}
+\newcommand{\cheskol}{\mathsf{cheskol}}
 %\newfloatcommand{capbtabbox}{table}[][\FBwidth]
 
 %\spnewtheorem{theorem}{Theorem}
@@ -101,8 +105,6 @@
 \newcommand{\SSS}{\mathcal{S}} \newcommand{\TTT}{\mathcal{T}}
 \newcommand{\VVV}{\mathcal{V}} \newcommand{\bigoh}{\mathcal{O}}
 
-\newcommand{\qrpcert}{\mathsf{QBFCert}}
-
 % QED AT THE END OF PROOFS
 \let\doendproof\endproof
 \renewcommand\endproof{~\hfill\qed\doendproof}
@@ -164,7 +166,7 @@
 %\pagestyle{empty}
 
 %
-\title{Verified QBF Certificate Checking}
+\title{Verified Resolution-Based QBF Certificate Checking}
 
 
 %\titlerunning{Abbreviated paper title}
@@ -192,9 +194,16 @@
 
 \section{Introduction}
 \label{sec:intro}
+Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers over the propositional variables. The use of quantifiers provides more succinct encoding of problems than with just propositional variables. For example QBF encoding of Bounded model checking (BMC) problem \cite{DershowitzHK05} can be exponentially more compact than corresponding propositional encoding. However, this comes with a price, QBFs are much more difficult to solve than propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71} whereas, the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. QBF is a powerful host language for many application domains in automated reasoning and artificial intelligence, including planning \cite{AnsoteguiGS05, EglyKLP17}, verification \cite{MillerSB13} and synthesis \cite{BloemKS14}.
 
-XXX
+For many of the applications of QBFs, finding whether QBF is \textit{true} or \textit{false} is not enough and sometimes worthless. For instance, in BMC, if the safety property is violated, the tool should provide a counter-example. Therefore, in addition to bare yes/no answers, a QBF solver must provide \textit{certificates}; a proof or reason for unsatisfiability to construct the counter-examples. In comparison to SAT, the QBF technology is still in the early stages of it's development, and the solvers are error-prone. To establish the trust in the correctness of a QBF solver certificates are a must. Most of the modern QBF solvers in addition to solve the satisfiability problem of the formula produce certificates \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17}. The most general format is a set of Skolem functions representing a model for a true or false QBF. 
+A complete certification process will ensure the correctness of the solver's result and enables reasoning tasks that require witness. 
+%For example, similar to SAT competitions, validate the results of QBF solvers in the QBF competitions, replacing the current practice of just relying on the majority votes. 
 
+We address two of the major bottlenecks in the adoption of the certificate extraction process. First, provide complete confidence in the result of the solver. Second, generate and verify the certificates with a marginal overhead to the solving time.  We present an approach of a formally verified certificate generation to ensure complete trust in the result of the solver and the generated Skolem functions. The certification process poses an additional overhead over the verification process, for example, the resolution based QBF solver DepQBF \cite{LonsingB10} takes as much time to generate and validate the Skolem function as it takes to solve the original instance. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12}, where the generated Skolem function is checked against the original formula for correctness. In \cite{NiemetzPLSB12} more than 77\% of the certification time is spent to validate the certificate using a SAT solver. Our approach eliminates the use of the explicit validation process and hence achieve the second goal. We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}, our approach can be adopted for other QBF solving techniques.
+
+Formal verification approach is used in SAT solving \cite{BlanchetteFLW18} recently to formally verify the SAT solvers to have guarantee confidence in the results. To our best knowledge this is the first application of formally verification used in QBFs. We hope that approach developed in this paper will generate more interest in automated verification in QBFs, lead to the goal of having complete certification based approach for QBFs. 
+ 
 \section{Preliminaries}
 \label{sec:pre}
 
@@ -203,18 +212,24 @@ We consider QBFs $\FFF = {\qp}.\matrixf$ in prenex conjunctive normal form (PCNF
 The qunatifier prefix of a QBF is partitioned into subsequent different \textit{quantifier blocks}, each of which is a maximal subsequence $\exists x_{1} \ldots \exists x_{n}$ or $\forall y_{1} \ldots \forall y_{m}$. We denote the ith quantifier block by $\qp(i)$. For literal $l$, $\qlvl(l) = i$ if $\var(l) \in \qp(i)$. For literals $l, k$, it holds that $l <_\qp k$ if $\qlvl(l) = i$, $\qlvl(k) = j$, and $k < j$. If $\qp$ consists of $k$ quantifier blocks, i.e., $|\qp| = k$,  we call $\qp({k})$ the innermost quantifier block and $\qp({1})$ the outermost quantifier block. By $\universals$ and $\existentials$, we denote the set of universal and existential variables occurring in $\qp$. 
 
 An \textit{assignment} is a mapping of variables to boolean values $\1, \0$. We use a function $\sigma \colon V' \to \{\1, \0 \}$ to represent an assignment of variables $V^{\prime} \subseteq V$. If $V^{\prime} = V$ we call the assignment \emph{total}, otherwise we call it \emph{partial}. For a matrix $\matrixf$ and partial assignment $\sigma$, we write $\matrixf|_{\sigma}$ for the formula obtained after applying the partial assignment $\sigma$ to $\matrixf$, i.e., for every $v$ $\in$ $\sigma$ we replace all occurrences of $v$ in $\phi$ with $\sigma(v)$ and perform standard propositional simplifications.
-
-%We assume the standard QBF semantics. The semantics of a QBF is defined recursively: a QBF $\sexists x\qp.\matrixf$ is true if and only if $\qp.\matrixf|_{x=\1}$ or $\qp.\matrixf|_{x=\0}$ is true and a QBF $\forall y\qp.\matrixf$ is true if and only if both $\qp.\matrixf|_{y=\1}$ and $\qp.\matrixf|_{y=\0}$ are true.
-
+%We assume the standard QBF semantics. The semantics of a QBF is defined re ursively: a QBF $\sexists x\qp.\matrixf$ is true if and only if $\qp.\matrixf|_{x=\1}$ or $\qp.\matrixf|_{x=\0}$ is true and a QBF $\forall y\qp.\matrixf$ is true if and only if both $\qp.\matrixf|_{y=\1}$ and $\qp.\matrixf|_{y=\0}$ are true.
 A closed PCNF formula is true if and only if there exists an assignment of truth values to the existential variables depending on the preceding universal variables in the quantifier prefix such that the matrix of the formula is true for all values of the universal variables.
 %
 
+QBF satisfaction can be understood as a two players zero sum game. There are two players in the game: the existential player
+owns the existentially quantified variables, the universal player owns the rest. The players step through the quantifier prefix, and as each variable is encountered, the player who owns it declares a value for it. The existential player wins a run of the game if the constructed assignment satisfies all clauses in the matrix; otherwise the universal player wins. A QBF is true if and only if the existential player has a winning strategy that allows him to win no matter how the universal player plays; it is false if and only if the universal player has a winning strategy. Thus, a strategy for the universal player, and a proof that it is a winning strategy, is a proof that the QBF is false.
 
-\tikzstyle{block} = [draw, fill=blue!10, rectangle, rounded corners,
+\section{Related Work} \label{sec:related-work}
+
+A complete framework for generating QBF certificates from resolution proofs obtained by the QBF solver DepQBF was presented in \cite{NiemetzPLSB12}. The tool $\qrpcert$ extracts the Skolem function \cite{BalabanovJ11} from the Q-Resolution trace produced by DepQBF solver. The Skolem function is represented as AIGs. Certificate validation is performed by first translating the input formula into an AIG  and merging it with the certificate. Then the resulting AIG is translated into a CNF and use a SAT solver to check the validity. Figure \ref{fig:tool} (a) shows the overview of the tool. $\qrpcert$ does not support the advance dependency scheme used by DepQBF and the certificate validation is the most expensive step of the tool-chain.  
+ 
+\tikzstyle{block} = [draw, fill=red!10, rectangle, rounded corners,
+minimum height=4em, minimum width=7em]
+\tikzstyle{block4} = [draw, fill=blue!10, rectangle, rounded corners,
 minimum height=4em, minimum width=7em]
 \tikzstyle{block1} = [draw, fill=green!10, rectangle, rounded corners,
 minimum height=4em, minimum width=7em]
-\tikzstyle{block2} = [draw, fill=red!10, rectangle, rounded corners,
+\tikzstyle{block2} = [draw, fill=green!10, rectangle, rounded corners,
 minimum height=4em, minimum width=7em]
 \tikzstyle{bigblock} = [draw, fill=red!10, rectangle, rounded corners,
 minimum height=8em, minimum width=7em]
@@ -279,25 +294,41 @@ pin={[pinstyle]above:}
 	\caption{Completely solved by pre-processing}
 \end{subfigure}
 
-\begin{subfigure}[t]{0.5\textwidth}
-			\centering
+\caption{The complete architecture of the tool chain. XXX}\label{fig:tool}
+\end{figure}
+
+Generally, QBF instance is first passed through a preprocessor to simplify the original instance. The original instance is rewritten to an equi-satisfiable formula which is then passed to the QBF solver. To handle the preprocessing techniques quantified resolution asymmetric tautology (QRAT) proof system was introduced in \cite{HeuleSB14a}. QRAT is a framework that allows verification of all preprocessing techniques for QBFs with three simple rules \cite{HeuleSB14a}. The implementation integrate QRAT-based tracing to the pre-processor $\bloqqer$ \cite{Biere2011} and present an efficient QRAT proof checker $\qtrim$.
+In the subsequent work, \cite{HeuleSB14}, the authors extend the capabilities of $\qtrim$ to extract and validate the Skolem function from a completely solved instance after the pre-processing (by $\bloqqer$). 
+%The validation of Skolem functions checks the dependencies and computes whether the Skolem functions imply the formula using the SAT solver is performed by a tool $\cheskol$.
+Figure \ref{fig:tool} (b) show the architecture of the tool.
+
+
+The work \cite{FazekasHSB17} combines the partial Skolem function extracted from the QRAT trace and combine it with the Skolem function extracted by $\qcert$ of the pre-processed formula. The approach obtain Skolem functions with
+all preprocessing techniques implemented in  $\bloqqer$ and allow the combination of $\bloqqer$ with any Skolem function producing solver. The approach is used to the extraction only Skolem functions and support for the Herbrand function extraction is left as a future work.
+
+A similar approach to  \cite{FazekasHSB17} was developed in \cite{JanotaGM13} to obtain Skolem functions for a subset of the preprocessing techniques implemented in $\bloqqer$ by solution reconstruction rule for each of the supported preprocessing technique.
+
+
+
+\begin{figure}[t]
+	\centering
 	\begin{tikzpicture}[auto, node distance=1.8cm,>=latex', font = \sffamily, every text node part/.style={align=center}]
 	
 	\node [block, name=input] (controller) {Bloqqer \\ (preprocc.)};
 	\node [block, name=input,below of=controller] (prop1) {DepQBF};
 	\node [block2, name=input, below of=prop1] (prop) {QRPCert};  
-		
+	
 	\node [sum, above of=controller, node distance=1.5cm] (system) {};
 	\draw [->,semithick] (system) -- node[name=w] {\textsf{QBF $\FFF$}} (controller);
-	 \node [right of=prop, node distance=2.8cm] (skolem) {$f^{\prime\prime}$};
+	\node [right of=prop, node distance=2.8cm] (skolem) {$f^{\prime\prime}$};
 	\node [output, right of=controller, node distance=3.2cm] (unsat) {};    
 	\node [block1, left of=controller, node distance=3.8cm] (system) {QRATtrim};
 	\node [block1, right of=controller, node distance=4cm] (system2) {sk-extract};
-    \node [below of=system2, node distance=1.8cm] (skolem1) {$f^{\prime}$};
-	\node [block2, name=input, right of=skolem] (prop4) {Extract};  
+	\node [below of=system2, node distance=1.8cm] (skolem1) {$f^{\prime}$};
+	\node [block4, name=input, right of=skolem] (prop4) {Extract};  
 	\node [right of=prop4, node distance=1.8cm] (skolemf) {$f$};
 	\node [below of=system, node distance=1.8cm] (skolemf2) {$f$};
-		
+	
 	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {\textsf{SAT?}} (system);
 	
 	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop1) -- node[right] {trace} (prop);
@@ -310,12 +341,20 @@ pin={[pinstyle]above:}
 	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (system) -- node[name=u] {} (skolemf2);  
 	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {QRAT trace} (system2);
 	\end{tikzpicture}
-		\caption{Pre-processing with QBF solving}
-\end{subfigure}
-\caption{The complete architecture of the tool chain. XXX}\label{fig:tool}
+	\caption{Pre-processing with QBF solving}
 \end{figure}
 
-\bibliographystyle{splncs04}
+\section{Program Verification with Isabelle/HOL} \label{sec:Isabelle}
+
+XXX
+
+\section{Conclusion} \label{sec:conclusion}
+
+XXX
+
+\bibliographystyle{unsrt}
+
+%\bibliographystyle{splncs04}
 \bibliography{literature}
 
 \end{document}
