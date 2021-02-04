@@ -126,7 +126,7 @@
 \def\pspace{\sff{\#PSPACE}\xspace}
 
 \usepackage{tikz}
-\usetikzlibrary{tikzmark,decorations.pathreplacing,arrows,shapes,positioning,shadows,trees,shapes.gates.logic.US,arrows.meta,shapes,automata,petri,calc}
+\usetikzlibrary{tikzmark,decorations.pathreplacing,arrows,shapes,positioning,shadows,trees,shapes.gates.logic.US,arrows.meta,shapes,automata,petri,calc,fit}
 \usetikzlibrary{positioning}
 
 \newcommand{\highlight}[3]{
@@ -175,16 +175,15 @@
 % If the paper title is too long for the running head, you can set
 % an abbreviated paper title here
 %
-\author{Peter Lammich\inst{1} \and Ankit Shukla\inst{1}}
+\author{Anonymous}
+%\author{Peter Lammich\inst{1} \and Ankit Shukla\inst{1}}
 %\orcidID{1111-2222-3333-4444}
 
 %\authorrunning{.}
 % First names are abbreviated in the running head.
 % If there are more than two authors, 'et al.' is used.
 %
-\institute{University of Manchester, United Kingdom \and JKU, Linz, Austria \\
-\email{peter.lammich@manchester.ac.uk, ankit.shukla@jku.at}
-}
+%\institute{University of Manchester, United Kingdom \and JKU, Linz, Austria \\\email{peter.lammich@manchester.ac.uk, ankit.shukla@jku.at}}
 %
 \maketitle              % typeset the header of the contribution
 %
@@ -196,15 +195,22 @@
 
 \section{Introduction}
 \label{sec:intro}
-Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers. The use of quantifiers provides a more succinct encoding of problems than with just propositional variables. For example, the QBF encoding of Bounded model checking (BMC) \cite{DershowitzHK05} can be exponentially more compact than the corresponding propositional one. However, this comes with a price QBFs is much more difficult to solve than the propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71}, whereas the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. QBF is a powerful host language for many application domains in automated reasoning and artificial intelligence \cite{ShuklaBPS19}, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13}, and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}. 
+Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers. The use of quantifiers provides a more succinct encoding of problems than propositional formulas. For example, the QBF encoding of Bounded model checking (BMC) \cite{DershowitzHK05} can be exponentially more compact than the corresponding propositional one. However, this comes with a price: QBFs is much more difficult to solve than propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71}, whereas the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. The support for quantifiers makes QBF a powerful host language for many application domains in automated reasoning and artificial intelligence \cite{ShuklaBPS19}, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13}, and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}. 
 
-For many of the applications of QBFs, finding whether QBF is \textit{true} or \textit{false} is not enough and sometimes worthless. For instance, in BMC, if the safety property is violated, the tool should provide a counter-example. Therefore, in addition to bare yes/no answers, a QBF solver must provide \textit{certificates} to construct the counter-examples. QBF technology is still in the early stages of its development, and the solvers are relatively more error-prone. To establish trust in the correctness of QBF solvers certificates are a must. Most of the modern QBF solvers produce certificates \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17}. The most general format of the certificate is a set of Skolem (Herbrand) functions representing a model for a true (false) QBF. 
-A complete certification process will ensure the correctness of the solver's result and enables reasoning tasks that require a witness. 
+In various applications of QBFs, finding whether a QBF is \textit{true} or \textit{false} is not enough. For instance, in BMC, if the program violates the safety property, the tool ideally should provide a counter-example. Therefore, a QBF solver in addition to bare yes/no answers must provide \textit{certificates} to construct the counter-examples. Certificates are used to validate the result of a solver as a witness for the decision. This increases the confidence in the correctness of the solver's result.
+% to increase the confidence in their result and to construct the counter-examples. 
+%Additionally, a certificate increases the confidence in the correctness of the solver's result.
+% as QBF technology is still in the early stages of its development, and the solvers are relatively more error-prone than SAT.
+
+Most of the modern QBF solvers produce certificates \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17}. The common way to represent a certificate is as a set of Skolem (Herbrand) functions representing a model for a true (false) QBF. To avoid spurious certificates, tools, validate the certificate results. During a certificate validation, the generated Skolem (Herbrand) function is checked against the original formula for correctness using a SAT solver. This process improves the confidence in the solver's result, but a buggy SAT solver could still lead to an incorrect decision. 
+
+
+%and enable reasoning tasks that require a witness.
 %For example, similar to SAT competitions, validate the results of QBF solvers in the QBF competitions, replacing the current practice of just relying on the majority votes. 
 
 We address two of the bottlenecks in the adoption of the certificate extraction process. First, provide complete confidence in the result of the solver. Second, generate and verify the certificates with a marginal overhead to the solving time. 
 
-We present an approach of a formally verified certificate generation and checking to ensure complete trust in the result of the solver and the generated Skolem functions. The certification validation process poses an additional overhead over the verification process, for example, the resolution based QBF solver DepQBF \cite{LonsingB10} takes as much time to generate and validate the Skolem function as it takes to solve the original instance. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12}, where the generated Skolem function is checked against the original formula for correctness using a SAT solver. In \cite{NiemetzPLSB12} more than 77\% of the certification time is spent to validate the certificate. Our approach eliminates the use of the explicit validation process (SAT solver call) and verifies the certificates with a marginal overhead. We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}; our approach can be adopted for other QBF solving techniques \cite{RabeT15}.
+We present an approach of a formally verified certificate generation and checking to ensure complete trust in the result of the solver and the generated Skolem functions. The certification validation process poses an additional overhead over the verification process, for example, the resolution based QBF solver DepQBF \cite{LonsingB10} takes as much time to generate and validate the Skolem function as it takes to solve the original instance. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12}. In \cite{NiemetzPLSB12} more than 77\% of the certification time is spent to validate the certificate. Our approach eliminates the use of the explicit validation process (SAT solver call) and verifies the certificates with a marginal overhead. We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}; our approach can be adopted to other QBF solving techniques \cite{RabeT15}.
 
 Formal verification (automated/interactive theorem proving) approach \cite{Fleury2018a, Fleury2019a, BlanchetteFLW18} and verified certificate checking \cite{Cruz2017, Cruz2017b, Heule2017a, Lammich17} is used recently in SAT solving. This approach provides guaranteed confidence in the result of the solver and has revealed critical bugs \cite{Lammich17} in unverified tools. 
 
@@ -251,7 +257,7 @@ XXX
 \subsection{Extracting Skolem Functions without Preprocessing} \label{subsec:skolem-nopre}
 A complete framework for generating QBF certificates from resolution proofs obtained by the QBF solver DepQBF was presented in \cite{NiemetzPLSB12}. The tool $\qrpcert$ extracts the Skolem functions \cite{BalabanovJ11} from the Q-Resolution trace produced by DepQBF solver. The Skolem functions are represented as circuits (AIGs). The certificate validation is performed by first translating the input formula into an AIG  and merging it with the certificate. Then the resulting AIG is translated into a CNF and the SAT solver is used to check the validity of the CNF. Figure \ref{fig:tool} (a) shows the overview of the tool. 
 
-$\qrpcert$ does not support the advance dependency schemes used by DepQBF and the certificate validation (takes nearly 80 percent of the time) is the most expensive step of the tool-chain.  
+$\qrpcert$ does not support the advance dependency schemes used by DepQBF and the certificate validation (takes nearly 80 percent of the total time) is the most expensive step of the tool-chain.  
  
 \tikzstyle{block} = [draw, fill=red!10, rectangle, rounded corners,
 minimum height=4em, minimum width=7em]
@@ -329,17 +335,18 @@ pin={[pinstyle]above:}
 
 \subsection{Extracting Skolem Functions for Completely Solved Instances by Preprocessing} \label{subsec:skolem-pre}
 
-Generally, the QBF instance is first passed through a preprocessor to simplify the original instance. The original instance is rewritten to an equi-satisfiable formula and passed to a QBF solver. \cite{HeuleSB14a} introduced a quantified resolution asymmetric tautology (QRAT) proof system. QRAT is a framework that allows verification of all QBF preprocessing techniques with just three simple rules \cite{HeuleSB14a}. The implementation integrates QRAT-based tracing to the pre-processor $\bloqqer$ \cite{Biere2011} and present an efficient QRAT proof checker $\qtrim$.
+Generally, the QBF instance is first passed through a preprocessor to simplify the original instance. The original instance is rewritten to an equi-satisfiable formula and passed to a QBF solver. \cite{HeuleSB14a} introduced quantified resolution asymmetric tautology (QRAT) proof system. QRAT is a framework that allows verification of all QBF preprocessing techniques with just three simple rules \cite{HeuleSB14a}. The implementation integrates QRAT-based tracing to the pre-processor $\bloqqer$ \cite{Biere2011} and present an efficient QRAT proof checker $\qtrim$.
 In the subsequent work, \cite{HeuleSB14}, the authors extend the capabilities of $\qtrim$ to extract and validate the Skolem function from a completely solved instance after the pre-processing (by $\bloqqer$). 
 %The validation of Skolem functions checks the dependencies and computes whether the Skolem functions imply the formula using the SAT solver is performed by a tool $\cheskol$.
 Figure \ref{fig:tool} (b) show the architecture of the tool.
 
-The main drawback of the approach is: it supports \textbf{only Skolem functions extraction} from formulas that are solved by the preprocessor. There is no support for Herbrand function extraction from the solved instances. Skolem functions consider only deleted clauses of proof whereas, Herbrand functions consider both newly introduced clauses and updated clauses. Reason? Maybe: A clause addition step can introduce new variables. XXX
+The main drawback of the approach is: it supports \textbf{only Skolem functions extraction} from formulas that are solved by the preprocessor. There is no support for Herbrand function extraction from the solved instances. Skolem functions consider only deleted clauses of proof whereas, Herbrand functions consider both newly introduced clauses and updated clauses. 
+%Reason? Maybe: A clause addition step can introduce new variables. XXX
 
 
 \subsection{Reconstruct the Skolem Functions for the Original Formula} \label{subsec:skolem-compete}
 
-The work \cite{FazekasHSB17} combines the partial Skolem function extracted from the QRAT trace and the Skolem function (by $\qcert$) of the pre-processed formula. The approach obtains Skolem functions with all preprocessing techniques implemented in  $\bloqqer$ and allows the combination of $\bloqqer$ with any Skolem function producing solver. The approach support Skolem functions extraction, and there is no support for the Herbrand functions.
+The work \cite{FazekasHSB17} combines the partial Skolem function extracted from the QRAT trace and the Skolem function (by $\qcert$) of the pre-processed formula. The approach obtains Skolem functions with all preprocessing techniques implemented in  $\bloqqer$ and allows the combination of $\bloqqer$ with any Skolem function producing solver. The approach support only Skolem functions extraction, and there is no support for the Herbrand functions.
 
 A similar approach to  \cite{FazekasHSB17} was developed in \cite{JanotaGM13} to obtain Skolem functions for a subset of the preprocessing techniques implemented in $\bloqqer$ by solution reconstruction rule for each of the supported preprocessing technique.
 
@@ -359,7 +366,7 @@ A similar approach to  \cite{FazekasHSB17} was developed in \cite{JanotaGM13} to
 	\node [block1, left of=controller, node distance=3.8cm] (system) {QRATtrim};
 	\node [block1, right of=controller, node distance=4cm] (system2) {sk-extract};
 	\node [below of=system2, node distance=1.8cm] (skolem1) {$f^{\prime}$};
-	\node [block4, name=input, right of=skolem] (prop4) {extract};  
+	\node [block2, name=input, right of=skolem] (prop4) {extract};  
 	\node [right of=prop4, node distance=1.8cm] (skolemf) {$f$};
 	\node [below of=system, node distance=1.8cm] (skolemf2) {$f$};
 	
@@ -390,6 +397,65 @@ The certification process is similar to $\qrpcert$, a two-step approach: generat
 \section{Program Verification with Isabelle/HOL} \label{sec:Isabelle}
 
 XXX
+
+
+\begin{figure}[t]
+	\centering
+	\begin{tikzpicture}[auto, node distance=1.8cm,>=latex', font = \sffamily, every text node part/.style={align=center},    %title/.style={font=\fontsize{6}{6}\color{black!50}\ttfamily}, typetag/.style={rectangle, draw=black!50},
+	background/.style={rectangle, rounded corners, fill=black!0, draw=black!15, inner sep=4mm}]
+	
+	% \node (decomp) [title] { Decomposition };
+	%\draw [draw=black!50] (decomp.north west) rectangle +(4cm, -6.7cm);
+	\node [block, name=input] (controller) {DepQBF \\ (QBF
+		Solving)};
+	\node [block, name=input,below of=controller] (prop1) {QRPCheck \\ (Proof Extraction,
+		Checking)};
+	\node [block, label={[name=sub1]}, below of=prop1] (prop) {QRPCert \\ (Certificate
+		Extraction)};  
+	
+	\node [sum, above of=controller, node distance=1.5cm] (system) {};
+	\draw [->,semithick] (system) -- node[name=w] {\textsf{QBF $\FFF$}} (controller);
+	\node [block, right of=prop, node distance=5.8cm] (skolem) {CertCheck \\ (Skolemizations)};
+	\node [output, right of=controller, node distance=3.2cm] (unsat) {};    
+%	\node [block1, left of=controller, node distance=3.8cm] (system) {QRATtrim};
+%	\node [block1, right of=controller, node distance=4cm] (system2) {sk-extract};
+%	\node [below of=system2, node distance=1.8cm] (skolem1) {$f^{\prime}$};
+	\node [block4, name=input, below of=skolem, node distance=2cm] (prop4) {PicoSAT \\ (Certificate Validaion)};  
+%	\node [right of=prop4, node distance=1.8cm] (skolemf) {$f$};
+%	\node [below of=system, node distance=1.8cm] (skolemf2) {$f$};
+	
+	\node [ below of=prop, node distance=1.8cm] (cert1) {$f$};
+	\draw [->,semithick] (prop) -- node[name=w] {Verified Certificate} (cert1);
+	
+	
+%	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {\textsf{SAT?}} (system);
+	
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop1) -- node[right] {QRP Proof} (prop);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {trace QRP} (prop1);
+	\draw [->,decorate, dotted, decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop) -- node[name=u] {\textsf{Certificate}} (skolem);
+%	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (system2) -- node[name=u] {\textsf{Skolem}} (skolem1);
+	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (skolem) -- node[name=u] {Prop Fml} (prop4);
+%	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (skolem1) -- node[name=u] {} (prop4);
+%	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (prop4) -- node[name=u] {} (skolemf);  
+%	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (system) -- node[name=u] {} (skolemf2);  
+%	\draw [->,thick,decorate,decoration={amplitude=.4mm,segment length=2mm,post length=1mm}] (controller) -- node[name=u] {QRAT trace} (system2);
+
+%\node (dep) at (1cm, 0) [title] { Dependency };
+%\draw [draw=black!50] (dep.north west) rectangle ($(dep.north east) - (2, 5cm)$);
+\node[draw=none,fill=none,rectangle, rounded corners, above=0.0cm of prop1,xshift=-4.1cm,anchor=south west]
+(RefProof){Verfied by Isabelle};
+
+  \node[draw,fit=(RefProof)  (prop) (prop1), dotted] (LeftScope){};
+
+\node[draw=none,fill=none,rectangle, rounded corners, above=0.2cm of skolem,xshift=-1.1cm,anchor=south west]
+(RefProof1){Not required};
+
+\node[draw,fit=(skolem)(prop4)(RefProof1), dotted] (LeftScope){};
+
+
+	\end{tikzpicture}
+	\caption{Veri-$\qrpcert$ tool chain. Formally verify the certificate extraction and avoid the expensive certificate validation process (SAT solver all).}
+\end{figure}
 
 \section{Conclusion} \label{sec:conclusion}
 
