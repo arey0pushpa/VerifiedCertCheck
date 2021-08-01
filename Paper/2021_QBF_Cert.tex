@@ -195,29 +195,35 @@
 
 \section{Introduction}
 \label{sec:intro}
-Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers. The use of quantifiers provides a more succinct encoding of problems than propositional formulas. For example, the QBF encoding of Bounded model checking (BMC) \cite{DershowitzHK05} can be exponentially more compact than the corresponding propositional one. However, this comes with a price: QBFs is much more difficult to solve than propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71}, whereas the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. The support for quantifiers makes QBF a powerful host language for many application domains in automated reasoning and artificial intelligence \cite{ShuklaBPS19}, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13}, and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}. 
+%Quantified Boolean formulas (QBFs) is an extension of propositional formulas with existential and universal quantifiers over propositional variables. The support for quantifiers allows QBFs to represent problems more succinctly, for example the QBF encoding of Bounded model checking (BMC) \cite{DershowitzHK05} can be exponentially more compact than the corresponding propositional one. However, this comes with a price, QBFs are much more difficult to solve than propositional formulas. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71}, whereas the decision problem of QBFs (QSAT) is the prototypical PSPACE-problem \cite{StockmeyerM73}. This makes QBFs a powerful host language for many application domains in automated reasoning and artificial intelligence \cite{ShuklaBPS19}, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13}, and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}. 
 
-In various applications of QBFs, finding whether a QBF is \textit{true} or \textit{false} is not enough. For instance, in BMC, if the program violates the safety property, the tool ideally should provide a counter-example. Therefore, a QBF solver in addition to bare yes/no answers must provide \textit{certificates} to construct the counter-examples. Certificates are used to validate the result of a solver as a witness for the decision. This increases the confidence in the correctness of the solver's result.
+
+Quantified Boolean formulas (QBFs) generalize propositional formulas by admitting quantifications over propositional variables. 
+The support for quantifiers allows QBFs to represent problems more succinctly; for example, the QBF encoding of Bounded model checking (BMC) \cite{DershowitzHK05} can be exponentially more compact than the corresponding propositional one. However, this comes with a price, solving QBFs is a much more difficult task. The decision problem of propositional satisfiability (SAT) is NP-complete \cite{Cook71}, whereas the decision problem of QBFs (QSAT) is PSPACE-complete \cite{StockmeyerM73}. This makes QBFs a powerful host language for many application domains in automated reasoning and artificial intelligence \cite{ShuklaBPS19}, including planning \cite{AnsoteguiGS05, EglyKLP17, Cashmore2012planning, Gasquet18}, verification \cite{MillerSB13}, and synthesis \cite{BloemKS14, BloemEKKL14, Gange2014synthesizing}. 
+
+QBF technology is in the early stages of its development, and the solvers are relatively more error-prone than SAT.  Highly optimized heuristics techniques and the use of complex algorithms make QBF Solvers prone to error and bugs.  QBF solvers are used as a black box in several reasoning and verification systems and, a single bug in a QBF solver may invalidate the result of the entire system. Therefore, in addition to bare yes/no answer, most of the QBF solvers produce \textit{certificates} \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17} which is used to verify the result of the solver. The common way to represent a certificate is as a set of Skolem (Herbrand) functions representing a model for a true (false) QBF. The certificates are inherently needed in applications of QBF where a bare \textit{true} or \textit{false} answer is not enough. For instance, in BMC, if the program violates the safety property, the tool ideally should provide a counter-example. In such applications, certificates are used as a witness to construct the desired counter-examples. 
+
+%So, to construct the counter-examples, a QBF solver in addition to bare yes/no answers must provide \textit{certificates}. Certificates are used to validate the result of a solver as a witness for the decision. This increases the confidence in the correctness of the solver's result.
 % to increase the confidence in their result and to construct the counter-examples. 
 %Additionally, a certificate increases the confidence in the correctness of the solver's result.
-% as QBF technology is still in the early stages of its development, and the solvers are relatively more error-prone than SAT.
 
-Most of the modern QBF solvers produce certificates \cite{Balabanov2015, RabeS16, BalabanovJ12, Benedetti05, NarizzanoPPT09, NiemetzPLSB12, JussilaBSKW07, GoultiaevaGB11, Van2013, HeuleSB17}. The common way to represent a certificate is as a set of Skolem (Herbrand) functions representing a model for a true (false) QBF. To avoid spurious certificates, tools, validate the certificate results. During a certificate validation, the generated Skolem (Herbrand) function is checked against the original formula for correctness using a SAT solver. This process improves the confidence in the solver's result, but a buggy SAT solver could still lead to an incorrect decision. 
+
+The correctness of the QBF solver's result is determined by the process of \textit{certificate validation}, where the generated Skolem (Herbrand) function is checked against the original formula using a SAT solver. This process improves the confidence in the solver's result, but bugs in SAT solver could still lead to an incorrect decision. The certification process (certificate generation + validation) poses an additional overhead to the solving time. For example, the resolution based tool $\qrpcert$ takes as much time to generate and validate the Skolem function as it takes to solve the original instance by the QBF solver. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12} with more than 77\% of the certification time spent to validate the certificate.
 
 
 %and enable reasoning tasks that require a witness.
 %For example, similar to SAT competitions, validate the results of QBF solvers in the QBF competitions, replacing the current practice of just relying on the majority votes. 
 
-We address two of the bottlenecks in the adoption of the certificate extraction process. First, provide complete confidence in the result of the solver. Second, generate and verify the certificates with a marginal overhead to the solving time. 
+%We address the above two bottlenecks by a formally verified certificate extraction approach to generate Skolem functions. This ensures complete confidence in the result of the solver where certificate is produced with a marginal overhead to the solving time.  It eliminates the use of the explicit validation process (SAT solver call). We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}; our approach can be adopted to other QBF solving techniques \cite{RabeT15}.
+We address the above two bottlenecks by a formally verified certificate extraction approach to generate Skolem functions. The verified certificates eliminate the certificate validation process (SAT solver call) and, our efficient implementation generates certificates with a marginal overhead. We show the effectiveness of our method in the resolution-based certificate extraction \cite{NiemetzPLSB12}. Our approach can be adapted to other QBF solving techniques \cite{RabeT15}.  
 
-We present an approach of a formally verified certificate generation and checking to ensure complete trust in the result of the solver and the generated Skolem functions. The certification validation process poses an additional overhead over the verification process, for example, the resolution based QBF solver DepQBF \cite{LonsingB10} takes as much time to generate and validate the Skolem function as it takes to solve the original instance. Certificate validation is the main bottleneck in the overall process \cite{NiemetzPLSB12}. In \cite{NiemetzPLSB12} more than 77\% of the certification time is spent to validate the certificate. Our approach eliminates the use of the explicit validation process (SAT solver call) and verifies the certificates with a marginal overhead. We show the effectiveness of our approach in the resolution-based certificate extraction \cite{NiemetzPLSB12}; our approach can be adopted to other QBF solving techniques \cite{RabeT15}.
+Formal verification (automated/interactive theorem proving) \cite{Fleury2018a, Fleury2019a, BlanchetteFLW18} and verified certificate checking \cite{Cruz2017, Cruz2017b, Heule2017a, Lammich17} is used recently in SAT solving. This approach provides guaranteed confidence in the solver's result and has revealed critical bugs \cite{Lammich17} in unverified tools. 
 
-Formal verification (automated/interactive theorem proving) approach \cite{Fleury2018a, Fleury2019a, BlanchetteFLW18} and verified certificate checking \cite{Cruz2017, Cruz2017b, Heule2017a, Lammich17} is used recently in SAT solving. This approach provides guaranteed confidence in the result of the solver and has revealed critical bugs \cite{Lammich17} in unverified tools. 
+To the best of our knowledge, this is the first application of the verified approach in QBFs. We hope the method developed in this paper will generate more interest in automated verification of QBFs and lead us closer to the adoption of efficient verified certification checking with minimal overhead.
 
-To best of our knowledge, this is the first application of the verified approach in QBFs. We hope the approach developed in this paper will generate more interest in automated verification of QBFs and lead us closer to the adoption of efficient verified certification checking with minimal overhead. \\
- 
- 
-\textbf{DepQBF Use Cases}: 
+\section{DepQBF Use Cases}
+\label{sec:todos}
+
 Following are the examples that require DepQBF with function synthesis and a simple yes/no answer is not enough:
 \begin{enumerate}
 	\item In BMC or reachability analysis \cite{BloemKS14}, if the safety property is violated, the tool should provide a counter-example. 
@@ -226,13 +232,13 @@ Following are the examples that require DepQBF with function synthesis and a sim
 	\item In hardware circuit synthesis \cite{BloemEKKL14, BloemKS14, Faymonville2017, Subramanyan2013, Li2013} it's not enough to know if there exists an implementation. A strategy is required, to construct a circuit that implements a black box. In \cite{Subramanyan2013, Li2013} the problem is modeled as a 2QBF. Synthesizing optimal switching lattices \cite{Gange2014synthesizing}: the problem is encoded as 2QBF. 
 	\item Firewalls verification and synthesis \cite{Zhang2012verification}. The problem was encoded as 2QBF. Synthesized assignment amounts to the definition of rules of the firewall.
 	\item Biological networks synthesis \cite{GuptaMS18}; completion of the network and predicting activities of the molecules with incomplete information requires Skolem function to be synthesized to develop wet experiments in laboratories.  
- 	
- 	XXX
+	
+	XXX
 \end{enumerate}
 
 \textbf{Other Use Cases} (Yes/No answer is sufficient):
 \begin{enumerate}
-    \item Cryptography: DepQBF solver was used to verify whether the precondition holds in a secure multiparty computation \cite{Launchbury2014application}. 
+	\item Cryptography: DepQBF solver was used to verify whether the precondition holds in a secure multiparty computation \cite{Launchbury2014application}. 
 	\item Application to AI (argumentation frameworks): abstract dialectical frameworks \cite{Brewka2020solving, Diller2014reasoning}. ADF is compiled to a QBF and solved using DepQBF.
 	\item Adversarial games: Tic-Tac-Toe \cite{DiptaramaYS16}.
 \end{enumerate}
